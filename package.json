@@ -1,6 +1,6 @@
 {
-	"name": "folder-hub",
-	"displayName": "Folder hub",
+	"name": "folder-manager",
+	"displayName": "Folder manager",
 	"description": "",
 	"version": "0.0.1",
 	"engines": {
@@ -10,16 +10,45 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:folder-hub.helloWorld"
+		"onView:folder-manager"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
+		"views": {
+			"explorer": [
+			  {
+				"id": "folder-manager",
+				"name": "Folder Manager"
+			  }
+			]
+		  },
 		"commands": [
 			{
-				"command": "folder-hub.helloWorld",
+				"command": "folder-manager.helloWorld",
 				"title": "Hello World"
-			}
-		]
+			},
+
+			{
+                "command": "folder-manager.refreshEntry",
+                "title": "Refresh",
+                "icon": {
+                    "light": "resources/light/refresh.svg",
+                    "dark": "resources/dark/refresh.svg"
+                }
+            },
+			{
+                "command": "folder-manager.selectFolder",
+                "title": "Select folder"
+            }
+		],
+		"menus": {
+			"explorer/context": [
+				{
+					"command": "folder-manager.selectFolder"
+				}
+			]
+		}
+		
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
