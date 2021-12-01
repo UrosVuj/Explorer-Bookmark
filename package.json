@@ -2,7 +2,7 @@
   "name": "explorer-manager",
   "publisher": "ukivuj",
   "displayName": "Explorer manager",
-  "description": "Extension meant to simplify directory traversals of big projects. Mark important files or folders, and have them readily available in the Explorer Manager View in the Explorer tab ",
+  "description": "Extension meant to simplify directory traversals of big projects. Mark important files or folders and have them readily available in the Explorer Manager View in the Explorer tab ",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.55.0"
@@ -11,7 +11,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onView:explorer-manager"
+    "onView:explorer-manager",
+    "onCommand:explorer-manager.selectItem"
   ],
   "main": "./out/extension.js",
   "contributes": {

@@ -21,7 +21,6 @@ export function activate(context: vscode.ExtensionContext) {
         explorerManager.selectItem(vscode.Uri.parse(args.path))
       ),
       vscode.commands.registerCommand("explorer-manager.removeItem", (args) => {
-        console.log(args.resourceUri);
         explorerManager.removeItem(args.resourceUri);
       }),
       vscode.commands.registerCommand(
