@@ -1,11 +1,15 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { FileSystemObject } from "./FileSystemObject";
+import { get } from "https";
 
-export class FolderManager
+export class ExplorerManager
   implements vscode.TreeDataProvider<FileSystemObject>
 {
   private selectedFSObjects: vscode.Uri[] = [];
+
+  private saveWorkspaceSetting: boolean | undefined = false;
+
   private _onDidChangeTreeData: vscode.EventEmitter<
     FileSystemObject | undefined | null | void
   > = new vscode.EventEmitter<FileSystemObject | undefined | null | void>();
@@ -13,28 +17,54 @@ export class FolderManager
     FileSystemObject | undefined | null | void
   > = this._onDidChangeTreeData.event;
 
+  constructor(
+    private extensionContext: vscode.ExtensionContext,
+    private workspaceRoot: readonly vscode.WorkspaceFolder[] | undefined
+  ) {
+    this.getSettings();
+    if (this.saveWorkspaceSetting && this.selectedFSObjects.length > 0) {
+      for (const object of this.selectedFSObjects) {
+      }
+      this.refresh();
+    }
+    console.log(
+      this.extensionContext.workspaceState.get("savedWorkspaceItems")
+    );
+  }
+
   getTreeItem(
     element: FileSystemObject
   ): vscode.TreeItem | Thenable<vscode.TreeItem> {
     return element;
   }
+
   async getChildren(element?: FileSystemObject): Promise<FileSystemObject[]> {
     if (element) {
       return this.directorySearch(element.resourceUri);
     } else {
-      if (this.selectedFSObjects.length > 0) {
-        return this.createEntries(this.selectedFSObjects);
-      } else {
-        return Promise.resolve([]);
-      }
+      return this.selectedFSObjects.length > 0
+        ? this.createEntries(this.selectedFSObjects)
+        : Promise.resolve([]);
     }
   }
 
-  async selectFolder(uri: vscode.Uri | undefined) {
+  async selectItem(uri: vscode.Uri | undefined) {
     if (uri) {
       this.selectedFSObjects.push(uri);
     }
     this.refresh();
+    this.saveWorkspace();
+  }
+
+  async removeItem(uri: vscode.Uri | undefined) {
+    if (uri) {
+      const index = this.selectedFSObjects.indexOf(uri);
+      if (index > -1) {
+        this.selectedFSObjects.splice(index, 1);
+      }
+    }
+    this.refresh();
+    this.saveWorkspace();
   }
 
   private async directorySearch(uri: vscode.Uri) {
@@ -51,7 +81,7 @@ export class FolderManager
         return new FileSystemObject(
           name,
           isDirectory,
-          vscode.Uri.joinPath(uri, "/" + name)
+          vscode.Uri.file(uri.path + "/" + name)
         );
       });
   }
@@ -69,14 +99,42 @@ export class FolderManager
             ? vscode.TreeItemCollapsibleState.None
             : vscode.TreeItemCollapsibleState.Collapsed,
           fsItem
-        )
+        ).setContextValue("directlySavedItem")
       );
     }
 
     return folderSystem;
   }
 
+  private getSettings() {
+    this.saveWorkspaceSetting = vscode.workspace
+      .getConfiguration("explorer-manager")
+      .get("saveWorkspace");
+    this.selectedFSObjects =
+      (this.workspaceRoot
+        ? this.extensionContext.workspaceState.get("savedWorkspaceItems")
+        : this.extensionContext.globalState.get("savedWorkspaceItems")) || [];
+  }
+
+  removeAllItems() {
+    this.selectedFSObjects = [];
+    this.refresh();
+    this.saveWorkspace();
+  }
+
   refresh(): void {
     this._onDidChangeTreeData.fire();
+  }
+
+  saveWorkspace() {
+    this.workspaceRoot
+      ? this.extensionContext.workspaceState.update(
+          "savedWorkspaceItems",
+          this.selectedFSObjects
+        )
+      : this.extensionContext.globalState.update(
+          "savedWorkspaceItems",
+          this.selectedFSObjects
+        );
   }
 }

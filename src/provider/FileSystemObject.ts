@@ -10,13 +10,13 @@ export class FileSystemObject extends vscode.TreeItem {
     uri: vscode.Uri
   ) {
     super(label, collapsibleState);
-    this.tooltip = `${uri}`;
+    this.tooltip = uri.fsPath;
     this.resourceUri = uri;
     this.command =
       collapsibleState === vscode.TreeItemCollapsibleState.None
         ? {
             arguments: [this],
-            command: "folder-manager.openFile",
+            command: "explorer-manager.openFile",
             title: this.label,
           }
         : undefined;

@@ -1,34 +1,42 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
-import { FolderManager } from "./provider/FolderManager";
+import { ExplorerManager } from "./provider/ExplorerManager";
 
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-  let disposable = vscode.commands.registerCommand(
-    "folder-manager.helloWorld",
-    () => {
-      vscode.window.showInformationMessage("Hello World from Uki car!");
-    }
+  const explorerManager = new ExplorerManager(
+    context,
+    vscode.workspace.workspaceFolders
   );
 
-  context.subscriptions.push(disposable);
+  vscode.window.registerTreeDataProvider("explorer-manager", explorerManager);
 
-  const folderManager = new FolderManager();
-  vscode.window.registerTreeDataProvider("folder-manager", folderManager);
-
-  //register commands
-  vscode.commands.registerCommand("folder-manager.refreshEntry", () =>
-    folderManager.refresh()
-  );
-  vscode.commands.registerCommand("folder-manager.openFile", (file) =>
-    vscode.commands.executeCommand("vscode.open", file.resourceUri)
-  );
-  vscode.commands.registerCommand("folder-manager.selectFolder", (args) =>
-    folderManager.selectFolder(vscode.Uri.parse(args.path))
+  context.subscriptions.push(
+    ...[
+      vscode.commands.registerCommand("explorer-manager.refreshEntry", () =>
+        explorerManager.refresh()
+      ),
+      vscode.commands.registerCommand("explorer-manager.openFile", (file) =>
+        vscode.commands.executeCommand("vscode.open", file.resourceUri)
+      ),
+      vscode.commands.registerCommand("explorer-manager.selectItem", (args) =>
+        explorerManager.selectItem(vscode.Uri.parse(args.path))
+      ),
+      vscode.commands.registerCommand("explorer-manager.removeItem", (args) => {
+        console.log(args.resourceUri);
+        explorerManager.removeItem(args.resourceUri);
+      }),
+      vscode.commands.registerCommand(
+        "explorer-manager.cantRemoveItemMsg",
+        () => {
+          vscode.window.showInformationMessage(
+            "You can only remove items that were directly added to the view"
+          );
+        }
+      ),
+      vscode.commands.registerCommand("explorer-manager.removeAllItems", () =>
+        explorerManager.removeAllItems()
+      ),
+    ]
   );
 }
 
-// this method is called when your extension is deactivated
 export function deactivate() {}
