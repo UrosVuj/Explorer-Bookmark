@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { FileSystemObject } from "./FileSystemObject";
-import { get } from "https";
 
 export class ExplorerManager
   implements vscode.TreeDataProvider<FileSystemObject>
@@ -27,9 +26,6 @@ export class ExplorerManager
       }
       this.refresh();
     }
-    console.log(
-      this.extensionContext.workspaceState.get("savedWorkspaceItems")
-    );
   }
 
   getTreeItem(
