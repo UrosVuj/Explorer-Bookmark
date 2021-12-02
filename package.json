@@ -4,6 +4,7 @@
     "type": "git",
     "url": "https://github.com/UrosVuj/Explorer-Manager.git"
   },
+  "publisher": "UrosVujosevic",
   "displayName": "Explorer Manager",
   "description": "Extension meant to caching important folders and files",
   "version": "0.0.1",
