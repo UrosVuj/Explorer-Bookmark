@@ -8,7 +8,7 @@
   "displayName": "Explorer Manager",
   "description": "Quickly access important folders and files",
   "icon": "docs/icon.png",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "engines": {
     "vscode": "^1.55.0"
   },
