@@ -6,8 +6,9 @@
   },
   "publisher": "UrosVujosevic",
   "displayName": "Explorer Manager",
-  "description": "Extension meant to caching important folders and files",
-  "version": "0.0.1",
+  "description": "Quickly access important folders and files",
+  "icon": "docs/icon.png",
+  "version": "0.0.2",
   "engines": {
     "vscode": "^1.55.0"
   },
