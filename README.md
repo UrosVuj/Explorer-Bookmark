@@ -1,4 +1,4 @@
-# explorer-manager README
+# Explorer Manager for VS Code
 
 Ever got lost in a huge repo, with no feasable way back to the files you originally worked on?
 <br />
