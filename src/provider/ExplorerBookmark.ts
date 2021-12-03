@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { FileSystemObject } from "./FileSystemObject";
 
-export class ExplorerManager
+export class ExplorerBookmark
   implements vscode.TreeDataProvider<FileSystemObject>
 {
   private selectedFSObjects: vscode.Uri[] = [];
@@ -104,7 +104,7 @@ export class ExplorerManager
 
   private getSettings() {
     this.saveWorkspaceSetting = vscode.workspace
-      .getConfiguration("explorer-manager")
+      .getConfiguration("explorer-bookmark")
       .get("saveWorkspace");
     this.selectedFSObjects =
       (this.workspaceRoot

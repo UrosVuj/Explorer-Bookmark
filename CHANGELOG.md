@@ -1,3 +1,7 @@
-# Initial release
+# 0.0.1
 
-- Released
+- Releasee
+
+# 0.0.4
+
+- Name update

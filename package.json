@@ -2,13 +2,13 @@
   "name": "explorer-manager",
   "repository": {
     "type": "git",
-    "url": "https://github.com/UrosVuj/Explorer-Manager.git"
+    "url": "https://github.com/UrosVuj/Explorer-Bookmark.git"
   },
   "publisher": "UrosVujosevic",
-  "displayName": "Explorer Manager",
+  "displayName": "Explorer Bookmark",
   "description": "Quickly access important folders and files",
   "icon": "docs/icon.png",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "engines": {
     "vscode": "^1.55.0"
   },
@@ -18,93 +18,96 @@
   "keywords": [
     "explorer",
     "folder",
-    "manager",
+    "bookmark",
     "file",
-    "focus"
+    "focus",
+    "manager",
+    "finder",
+    "drawer"
   ],
   "activationEvents": [
-    "onView:explorer-manager",
-    "onCommand:explorer-manager.selectItem"
+    "onView:explorer-bookmark",
+    "onCommand:explorer-bookmark.selectItem"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "viewsWelcome": [
       {
-        "view": "explorer-manager",
+        "view": "explorer-bookmark",
         "contents": "Right click and add a file or folder"
       }
     ],
     "views": {
       "explorer": [
         {
-          "id": "explorer-manager",
-          "name": "Explorer Manager"
+          "id": "explorer-bookmark",
+          "name": "Explorer Bookmark"
         }
       ]
     },
     "commands": [
       {
-        "command": "explorer-manager.refreshEntry",
+        "command": "explorer-bookmark.refreshEntry",
         "title": "Refresh",
         "icon": "$(refresh)"
       },
       {
-        "command": "explorer-manager.selectItem",
-        "title": "Add to Explorer Manager"
+        "command": "explorer-bookmark.selectItem",
+        "title": "Add to Explorer Bookmark"
       },
       {
-        "command": "explorer-manager.removeItem",
-        "title": "Remove from Explorer Manager",
+        "command": "explorer-bookmark.removeItem",
+        "title": "Remove from Explorer Bookmark",
         "icon": "$(close)"
       },
       {
-        "command": "explorer-manager.removeAllItems",
+        "command": "explorer-bookmark.removeAllItems",
         "title": "Remove All Items",
         "icon": "$(trash)"
       },
       {
-        "command": "explorer-manager.cantRemoveItemMsg",
-        "title": "Remove from Explorer Manager"
+        "command": "explorer-bookmark.cantRemoveItemMsg",
+        "title": "Remove from Explorer Bookmark"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "explorer-manager.refreshEntry",
-          "when": "view == explorer-manager",
+          "command": "explorer-bookmark.refreshEntry",
+          "when": "view == explorer-bookmark",
           "group": "navigation"
         },
         {
-          "command": "explorer-manager.removeAllItems",
-          "when": "view == explorer-manager",
+          "command": "explorer-bookmark.removeAllItems",
+          "when": "view == explorer-bookmark",
           "group": "navigation"
         }
       ],
       "explorer/context": [
         {
-          "command": "explorer-manager.selectItem"
+          "command": "explorer-bookmark.selectItem"
         }
       ],
       "view/item/context": [
         {
-          "command": "explorer-manager.removeItem",
-          "when": "view == explorer-manager && viewItem == directlySavedItem"
+          "command": "explorer-bookmark.removeItem",
+          "when": "view == explorer-bookmark && viewItem == directlySavedItem"
         },
         {
-          "command": "explorer-manager.removeItem",
-          "when": "view == explorer-manager && viewItem == directlySavedItem",
+          "command": "explorer-bookmark.removeItem",
+          "when": "view == explorer-bookmark && viewItem == directlySavedItem",
           "group": "inline"
         },
         {
-          "command": "explorer-manager.cantRemoveItemMsg",
-          "when": "view == explorer-manager && viewItem != directlySavedItem"
+          "command": "explorer-bookmark.cantRemoveItemMsg",
+          "when": "view == explorer-bookmark && viewItem != directlySavedItem"
         }
       ]
     },
     "configuration": {
-      "title": "Explorer Manager",
+      "title": "Explorer Bookmark",
       "properties": {
-        "explorer-manager.saveWorkspace": {
+        "explorer-bookmark.saveWorkspace": {
           "type": "boolean",
           "default": true,
           "description": "Save the current explorer view when closing VS Code"

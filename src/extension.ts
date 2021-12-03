@@ -1,38 +1,41 @@
 import * as vscode from "vscode";
-import { ExplorerManager } from "./provider/ExplorerManager";
+import { ExplorerBookmark } from "./provider/ExplorerBookmark";
 
 export function activate(context: vscode.ExtensionContext) {
-  const explorerManager = new ExplorerManager(
+  const explorerBookmark = new ExplorerBookmark(
     context,
     vscode.workspace.workspaceFolders
   );
 
-  vscode.window.registerTreeDataProvider("explorer-manager", explorerManager);
+  vscode.window.registerTreeDataProvider("explorer-bookmark", explorerBookmark);
 
   context.subscriptions.push(
     ...[
-      vscode.commands.registerCommand("explorer-manager.refreshEntry", () =>
-        explorerManager.refresh()
+      vscode.commands.registerCommand("explorer-bookmark.refreshEntry", () =>
+        explorerBookmark.refresh()
       ),
-      vscode.commands.registerCommand("explorer-manager.openFile", (file) =>
+      vscode.commands.registerCommand("explorer-bookmark.openFile", (file) =>
         vscode.commands.executeCommand("vscode.open", file.resourceUri)
       ),
-      vscode.commands.registerCommand("explorer-manager.selectItem", (args) =>
-        explorerManager.selectItem(vscode.Uri.parse(args.path))
+      vscode.commands.registerCommand("explorer-bookmark.selectItem", (args) =>
+        explorerBookmark.selectItem(vscode.Uri.parse(args.path))
       ),
-      vscode.commands.registerCommand("explorer-manager.removeItem", (args) => {
-        explorerManager.removeItem(args.resourceUri);
-      }),
       vscode.commands.registerCommand(
-        "explorer-manager.cantRemoveItemMsg",
+        "explorer-bookmark.removeItem",
+        (args) => {
+          explorerBookmark.removeItem(args.resourceUri);
+        }
+      ),
+      vscode.commands.registerCommand(
+        "explorer-bookmark.cantRemoveItemMsg",
         () => {
           vscode.window.showInformationMessage(
             "You can only remove items that were directly added to the view"
           );
         }
       ),
-      vscode.commands.registerCommand("explorer-manager.removeAllItems", () =>
-        explorerManager.removeAllItems()
+      vscode.commands.registerCommand("explorer-bookmark.removeAllItems", () =>
+        explorerBookmark.removeAllItems()
       ),
     ]
   );

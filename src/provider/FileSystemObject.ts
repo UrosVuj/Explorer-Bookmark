@@ -16,7 +16,7 @@ export class FileSystemObject extends vscode.TreeItem {
       collapsibleState === vscode.TreeItemCollapsibleState.None
         ? {
             arguments: [this],
-            command: "explorer-manager.openFile",
+            command: "explorer-bookmark.openFile",
             title: this.label,
           }
         : undefined;

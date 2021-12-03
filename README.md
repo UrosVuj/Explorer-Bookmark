@@ -1,11 +1,11 @@
-# Explorer Manager for VS Code
+# Explorer Bookmark for VS Code
 
 Ever got lost in a huge repo, with no imaginable way back to the files you originally worked on?
 <br />
 Say goodbye to endless scrolling trying to find those files after losing where they were.
 <br />
 <br />
-Explorer Manager succeeds in making a quick-access explorer view. Adding often used folders or files to this cache-like structure makes traversing big projects just a bit less of a hassle.
+Explorer Bookmark succeeds in making a quick-access explorer view. Adding often used folders or files to this cache-like structure makes traversing big projects just a bit less of a hassle.
 
 ![gif](docs/demonstration.gif?raw=true)
 
