@@ -14,9 +14,12 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand("explorer-bookmark.refreshEntry", () =>
         explorerBookmark.refresh()
       ),
-      vscode.commands.registerCommand("explorer-bookmark.openFile", (file) =>
-        vscode.commands.executeCommand("vscode.open", file.resourceUri)
-      ),
+      vscode.commands.registerCommand("explorer-bookmark.openFile", (file) => {
+        vscode.commands.executeCommand(
+          "vscode.open",
+          vscode.Uri.parse(file.resourceUri.path)
+        );
+      }),
       vscode.commands.registerCommand("explorer-bookmark.selectItem", (args) =>
         explorerBookmark.selectItem(vscode.Uri.parse(args.path))
       ),
