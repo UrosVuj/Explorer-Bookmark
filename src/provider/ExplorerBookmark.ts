@@ -22,8 +22,6 @@ export class ExplorerBookmark
   ) {
     this.getSettings();
     if (this.saveWorkspaceSetting && this.selectedFSObjects.length > 0) {
-      for (const object of this.selectedFSObjects) {
-      }
       this.refresh();
     }
   }
