@@ -30,6 +30,12 @@ export function activate(context: vscode.ExtensionContext) {
         }
       ),
       vscode.commands.registerCommand(
+        "explorer-bookmark.renameItem",
+        (args) => {
+          explorerBookmark.renameItem(args);
+        }
+      ),
+      vscode.commands.registerCommand(
         "explorer-bookmark.cantRemoveItemMsg",
         () => {
           vscode.window.showInformationMessage(
