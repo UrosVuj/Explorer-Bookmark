@@ -1,5 +1,5 @@
-import * as vscode from "vscode";
 import * as path from "path";
+import * as vscode from "vscode";
 import { FileSystemObject } from "./FileSystemObject";
 
 export class ExplorerBookmark
@@ -12,6 +12,7 @@ export class ExplorerBookmark
   private _onDidChangeTreeData: vscode.EventEmitter<
     FileSystemObject | undefined | null | void
   > = new vscode.EventEmitter<FileSystemObject | undefined | null | void>();
+
   readonly onDidChangeTreeData: vscode.Event<
     FileSystemObject | undefined | null | void
   > = this._onDidChangeTreeData.event;
@@ -64,7 +65,22 @@ export class ExplorerBookmark
   private async directorySearch(uri: vscode.Uri) {
     const folders = await vscode.workspace.fs.readDirectory(uri);
     return folders
-      .sort((a, b) => a[0].localeCompare(b[0]))
+      .sort((a, b) => {
+        if (
+          a[1] === vscode.FileType.Directory &&
+          b[1] === vscode.FileType.File
+        ) {
+          return -1;
+        }
+        if (
+          a[1] === vscode.FileType.File &&
+          b[1] === vscode.FileType.Directory
+        ) {
+          return 1;
+        }
+
+        return a[0].localeCompare(b[0]);
+      })
       .map((item) => {
         const [name, type] = item;
         const isDirectory =
