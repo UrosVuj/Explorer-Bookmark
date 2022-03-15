@@ -61,6 +61,15 @@
         "icon": "$(close)"
       },
       {
+        "command": "explorer-bookmark.renameItem",
+        "title": "Rename bookmark",
+        "icon": {
+          "light": "resources/light/edit.svg",
+          "dark": "resources/dark/edit.svg"
+        },
+        "group": "inline"
+      },
+      {
         "command": "explorer-bookmark.removeAllItems",
         "title": "Remove All Items",
         "icon": "$(trash)"
@@ -97,6 +106,10 @@
           "command": "explorer-bookmark.removeItem",
           "when": "view == explorer-bookmark && viewItem == directlySavedItem",
           "group": "inline"
+        },
+        {
+          "command": "explorer-bookmark.renameItem",
+          "when": "view == explorer-bookmark && viewItem == directlySavedItem"
         },
         {
           "command": "explorer-bookmark.cantRemoveItemMsg",

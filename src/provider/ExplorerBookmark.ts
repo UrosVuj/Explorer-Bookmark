@@ -1,17 +1,16 @@
-import * as vscode from "vscode";
 import * as path from "path";
+import * as vscode from "vscode";
 import { FileSystemObject } from "./FileSystemObject";
 
-export class ExplorerBookmark
-  implements vscode.TreeDataProvider<FileSystemObject>
-{
-  private selectedFSObjects: vscode.Uri[] = [];
+export class ExplorerBookmark implements vscode.TreeDataProvider<FileSystemObject> {
+  private selectedFSObjects: FileSystemObject[] = [];
 
   private saveWorkspaceSetting: boolean | undefined = false;
 
   private _onDidChangeTreeData: vscode.EventEmitter<
     FileSystemObject | undefined | null | void
   > = new vscode.EventEmitter<FileSystemObject | undefined | null | void>();
+
   readonly onDidChangeTreeData: vscode.Event<
     FileSystemObject | undefined | null | void
   > = this._onDidChangeTreeData.event;
@@ -32,19 +31,45 @@ export class ExplorerBookmark
     return element;
   }
 
+  async renameItem(element: FileSystemObject): Promise<void> {
+    const value = await vscode.window.showInputBox({
+      placeHolder: "New name for bookmark",
+    });
+
+    if (!value) {
+      return;
+    }
+
+    await this.removeItem(element.resourceUri);
+    await this.selectItem(element.resourceUri, value);
+  }
+
   async getChildren(element?: FileSystemObject): Promise<FileSystemObject[]> {
     if (element) {
       return this.directorySearch(element.resourceUri);
     } else {
       return this.selectedFSObjects.length > 0
-        ? this.createEntries(this.selectedFSObjects)
+        ? this.selectedFSObjects
         : Promise.resolve([]);
     }
   }
 
-  async selectItem(uri: vscode.Uri | undefined) {
+  async selectItem(
+    uri: vscode.Uri | undefined,
+    name: string | undefined = undefined
+  ) {
     if (uri) {
-      this.selectedFSObjects.push(uri);
+      let type = (await vscode.workspace.fs.stat(uri)).type;
+
+      this.selectedFSObjects.push(
+        new FileSystemObject(
+          name ?? `${path.basename(uri.path)}`,
+          type === vscode.FileType.File
+            ? vscode.TreeItemCollapsibleState.None
+            : vscode.TreeItemCollapsibleState.Collapsed,
+          uri
+        ).setContextValue("directlySavedItem")
+      );
     }
     this.refresh();
     this.saveWorkspace();
@@ -52,7 +77,9 @@ export class ExplorerBookmark
 
   async removeItem(uri: vscode.Uri | undefined) {
     if (uri) {
-      const index = this.selectedFSObjects.indexOf(uri);
+      const index = this.selectedFSObjects.findIndex(
+        (x) => x.resourceUri === uri
+      );
       if (index > -1) {
         this.selectedFSObjects.splice(index, 1);
       }
@@ -64,7 +91,22 @@ export class ExplorerBookmark
   private async directorySearch(uri: vscode.Uri) {
     const folders = await vscode.workspace.fs.readDirectory(uri);
     return folders
-      .sort((a, b) => a[0].localeCompare(b[0]))
+      .sort((a, b) => {
+        if (
+          a[1] === vscode.FileType.Directory &&
+          b[1] === vscode.FileType.File
+        ) {
+          return -1;
+        }
+        if (
+          a[1] === vscode.FileType.File &&
+          b[1] === vscode.FileType.Directory
+        ) {
+          return 1;
+        }
+
+        return a[0].localeCompare(b[0]);
+      })
       .map((item) => {
         const [name, type] = item;
         const isDirectory =
@@ -78,26 +120,6 @@ export class ExplorerBookmark
           vscode.Uri.file(uri.path + "/" + name)
         );
       });
-  }
-
-  private async createEntries(selectedFSObjects: vscode.Uri[]) {
-    let folderSystem: FileSystemObject[] = [];
-
-    for (const fsItem of selectedFSObjects) {
-      let type = (await vscode.workspace.fs.stat(fsItem)).type;
-
-      folderSystem.push(
-        new FileSystemObject(
-          `${path.basename(fsItem.path)}`,
-          type === vscode.FileType.File
-            ? vscode.TreeItemCollapsibleState.None
-            : vscode.TreeItemCollapsibleState.Collapsed,
-          fsItem
-        ).setContextValue("directlySavedItem")
-      );
-    }
-
-    return folderSystem;
   }
 
   private getSettings() {
