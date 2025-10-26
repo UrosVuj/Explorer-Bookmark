@@ -54,11 +54,11 @@ export class AIService
             var promptText = this.makePrompt(content, filename, extension);
 
             // zovi copilot api
-            var copilotResponse = await this.callCopilotAPI(promptText);
+            var copilotResponse = await this.callCopilot(promptText);
 
             if (copilotResponse)
             {
-                var formatted = this.addFooter(copilotResponse, filename);
+                var formatted = this.dodajFooter(copilotResponse, filename);
                 return formatted;
             }
             else
@@ -78,11 +78,11 @@ export class AIService
     {
         try
         {
-            var copilotResponse = await this.callCopilotAPI(prompt);
+            var copilotResponse = await this.callCopilot(prompt);
 
             if (copilotResponse)
             {
-                var formatted = this.addFooter(copilotResponse, 'Git Diff Analysis');
+                var formatted = this.dodajFooter(copilotResponse, 'Git Diff Analysis');
                 return formatted;
             }
             else
@@ -126,7 +126,7 @@ export class AIService
     }
 
     // Ova metoda glavna!!
-    private static async callCopilotAPI(prompt: string): Promise<string | null>
+    private static async callCopilot(prompt: string): Promise<string | null>
     {
         try
         {
@@ -266,7 +266,7 @@ export class AIService
     }
 
     // dodaj futer na kraj
-    private static addFooter(response: string, filename: string): string
+    private static dodajFooter(response: string, filename: string): string
     {
         var now = new Date();
         var dateStr = now.toLocaleString();

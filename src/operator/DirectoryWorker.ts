@@ -30,6 +30,10 @@ export class DirectoryWorker
         this.hydrateState();
     }
 
+    /*
+    uros todo: mozda da podelis ovo klasu u vise manjih... Ovako je ogroman fajl, iako realno klasa ima full ownership logicki
+    */
+
     private getGitService(): GitService | null
     {
         // no workspace = no git
@@ -100,7 +104,7 @@ export class DirectoryWorker
             }
         }
 
-        var currentUser = await this.getCurrentUser();
+        var currentUser = await this.getCurrUser();
         var typedDirectory = await buildTypedDirectory(uri, undefined, currentUser);
 
         if (workspaceRoot && path.isAbsolute(typedDirectory.path))
@@ -225,7 +229,6 @@ export class DirectoryWorker
                 preview: false
             });
 
-            // Then open the markdown preview for it
             await vscode.commands.executeCommand('markdown.showPreview', doc.uri);
         });
     }
@@ -253,7 +256,7 @@ export class DirectoryWorker
         }
     }
 
-    public async showGitDiff(uri: vscode.Uri): Promise<void>
+    public async showDiff(uri: vscode.Uri): Promise<void>
     {
         var gitService = this.getGitService();
         if (!gitService)
@@ -275,7 +278,7 @@ export class DirectoryWorker
             return;
         }
 
-        var currentBranch = await gitService.getCurrentBranch();
+        var currentBranch = await gitService.getCurrBranch();
 
         var diffOptions = [
             {
@@ -307,7 +310,7 @@ export class DirectoryWorker
         if (!selectedOption) return;
 
         var resolvedUri = vscode.Uri.file(filePath);
-        await this.handleGitDiffOption(resolvedUri, gitService, selectedOption.option, currentBranch);
+        await this.handleDiffOption(resolvedUri, gitService, selectedOption.option, currentBranch);
     }
 
     public async cherryPickChanges(uri: vscode.Uri): Promise<void>
@@ -332,7 +335,7 @@ export class DirectoryWorker
 
         var branches = await gitService.getAllBranches();
         var branchNames = branches.map(b => b.name).filter(name => !name.startsWith('remotes/'));
-        var currentBranch = await gitService.getCurrentBranch();
+        var currentBranch = await gitService.getCurrBranch();
         var otherBranches = branchNames.filter(name => name !== currentBranch);
 
         if (otherBranches.length == 0)
@@ -370,7 +373,7 @@ export class DirectoryWorker
         await this.handleCherryPickOption(resolvedUri, gitService, sourceBranch, selectedOption.option);
     }
 
-    // TODO: dodati batch staging?
+    // todo uros: dodati batch staging?
     public async gitAddFile(uri: vscode.Uri): Promise<void>
     {
         var gitService = this.getGitService();
@@ -580,7 +583,7 @@ export class DirectoryWorker
 
         try
         {
-            await gitService.getCurrentBranch();
+            await gitService.getCurrBranch();
         } catch (error)
         {
             vscode.window.showErrorMessage('This workspace is not a Git repository.');
@@ -660,7 +663,7 @@ export class DirectoryWorker
             cancellable: false
         }, async () =>
         {
-            var result = await gitService!.stageCommitAndPushFiles(bookmarkedFiles, commitMessage!);
+            var result = await gitService!.stageCommitPush(bookmarkedFiles, commitMessage!);
 
             if (result.success)
             {
@@ -1012,25 +1015,25 @@ ${summary}`;
         {
             sectionsToInject = config.sections.map((s: any) =>
             {
-                var directories = (s.directories || []).map((d: any) =>
+                var directories = (s.directories || []).map((dir: any) =>
                 {
                     var gitInfo: any = undefined;
-                    if (d.gitInfo)
+                    if (dir.gitInfo)
                     {
                         gitInfo = {
-                            currentBranch: d.gitInfo.currentBranch,
-                            hasLocalChanges: d.gitInfo.hasLocalChanges,
-                            conflictStatus: d.gitInfo.conflictStatus,
-                            lastSync: d.gitInfo.lastSync ? new Date(d.gitInfo.lastSync) : undefined
+                            currentBranch: dir.gitInfo.currentBranch,
+                            hasLocalChanges: dir.gitInfo.hasLocalChanges,
+                            conflictStatus: dir.gitInfo.conflictStatus,
+                            lastSync: dir.gitInfo.lastSync ? new Date(dir.gitInfo.lastSync) : undefined
                         };
                     }
 
                     var relatedPRs = [];
-                    if (d.relatedPRs && Array.isArray(d.relatedPRs))
+                    if (dir.relatedPRs && Array.isArray(dir.relatedPRs))
                     {
-                        for (var i = 0; i < d.relatedPRs.length; i++)
+                        for (var i = 0; i < dir.relatedPRs.length; i++)
                         {
-                            var pr = d.relatedPRs[i];
+                            var pr = dir.relatedPRs[i];
                             var prWithDates = {
                                 id: pr.id,
                                 title: pr.title,
@@ -1049,20 +1052,20 @@ ${summary}`;
                         relatedPRs = [];
                     }
                     return new TypedDirectory(
-                        d.path,
-                        d.type,
-                        d.tags,
-                        d.addedBy,
-                        d.dateAdded ? new Date(d.dateAdded) : new Date(),
-                        d.aiSummary,
-                        d.lastSummaryUpdate ? new Date(d.lastSummaryUpdate) : undefined,
-                        d.watchers,
-                        d.priority,
-                        d.status,
+                        dir.path,
+                        dir.type,
+                        dir.tags,
+                        dir.addedBy,
+                        dir.dateAdded ? new Date(dir.dateAdded) : new Date(),
+                        dir.aiSummary,
+                        dir.lastSummaryUpdate ? new Date(dir.lastSummaryUpdate) : undefined,
+                        dir.watchers,
+                        dir.priority,
+                        dir.status,
                         gitInfo,
                         relatedPRs,
-                        d.lastAccessed ? new Date(d.lastAccessed) : undefined,
-                        d.accessCount
+                        dir.lastAccessed ? new Date(dir.lastAccessed) : undefined,
+                        dir.accessCount
                     );
                 });
 
@@ -1072,20 +1075,20 @@ ${summary}`;
         {
             sectionsToInject = config.sections.map((s: any) =>
             {
-                var directories = (s.directories || []).map((d: any) =>
+                var directories = (s.directories || []).map((dir: any) =>
                 {
                     var gitInfo: any = undefined;
-                    if (d.gitInfo)
+                    if (dir.gitInfo)
                     {
                         gitInfo = {
-                            currentBranch: d.gitInfo.currentBranch,
-                            hasLocalChanges: d.gitInfo.hasLocalChanges,
-                            conflictStatus: d.gitInfo.conflictStatus,
-                            lastSync: d.gitInfo.lastSync ? new Date(d.gitInfo.lastSync) : undefined
+                            currentBranch: dir.gitInfo.currentBranch,
+                            hasLocalChanges: dir.gitInfo.hasLocalChanges,
+                            conflictStatus: dir.gitInfo.conflictStatus,
+                            lastSync: dir.gitInfo.lastSync ? new Date(dir.gitInfo.lastSync) : undefined
                         };
                     }
 
-                    var relatedPRs = (d.relatedPRs || []).map((pr: any) =>
+                    var relatedPRs = (dir.relatedPRs || []).map((pr: any) =>
                     {
                         return {
                             id: pr.id,
@@ -1101,20 +1104,20 @@ ${summary}`;
                     });
 
                     return new TypedDirectory(
-                        d.path,
-                        d.type,
-                        d.tags,
-                        d.addedBy,
-                        d.dateAdded ? new Date(d.dateAdded) : new Date(),
-                        d.aiSummary,
-                        d.lastSummaryUpdate ? new Date(d.lastSummaryUpdate) : undefined,
-                        d.watchers,
-                        d.priority,
-                        d.status,
+                        dir.path,
+                        dir.type,
+                        dir.tags,
+                        dir.addedBy,
+                        dir.dateAdded ? new Date(dir.dateAdded) : new Date(),
+                        dir.aiSummary,
+                        dir.lastSummaryUpdate ? new Date(dir.lastSummaryUpdate) : undefined,
+                        dir.watchers,
+                        dir.priority,
+                        dir.status,
                         gitInfo,
                         relatedPRs,
-                        d.lastAccessed ? new Date(d.lastAccessed) : undefined,
-                        d.accessCount
+                        dir.lastAccessed ? new Date(dir.lastAccessed) : undefined,
+                        dir.accessCount
                     );
                 });
 
@@ -1327,27 +1330,27 @@ ${summary}`;
             this.bookmarkSections = storedSections.map((s: any) =>
             {
                 var dirs = s.directories || [];
-                var directories = dirs.map((d: any) =>
+                var directories = dirs.map((dir: any) =>
                 {
-                    var bookmarkPath = d.path;
+                    var bookmarkPath = dir.path;
                     if (workspaceRoot && path.isAbsolute(bookmarkPath))
                     {
                         bookmarkPath = path.relative(workspaceRoot, bookmarkPath);
                     }
 
                     var gitInfo: any = undefined;
-                    if (d.gitInfo)
+                    if (dir.gitInfo)
                     {
                         gitInfo = {
-                            currentBranch: d.gitInfo.currentBranch,
-                            hasLocalChanges: d.gitInfo.hasLocalChanges,
-                            conflictStatus: d.gitInfo.conflictStatus,
-                            lastSync: d.gitInfo.lastSync ? new Date(d.gitInfo.lastSync) : undefined
+                            currentBranch: dir.gitInfo.currentBranch,
+                            hasLocalChanges: dir.gitInfo.hasLocalChanges,
+                            conflictStatus: dir.gitInfo.conflictStatus,
+                            lastSync: dir.gitInfo.lastSync ? new Date(dir.gitInfo.lastSync) : undefined
                         };
                     }
 
                     // Reconstruct PullRequestInfo with proper Date objects
-                    var relatedPRs = (d.relatedPRs || []).map((pr: any) =>
+                    var relatedPRs = (dir.relatedPRs || []).map((pr: any) =>
                     {
                         return {
                             id: pr.id,
@@ -1364,19 +1367,19 @@ ${summary}`;
 
                     var typedDir = new TypedDirectory(
                         bookmarkPath,
-                        d.type,
-                        d.tags,
-                        d.addedBy,
-                        d.dateAdded ? new Date(d.dateAdded) : new Date(),
-                        d.aiSummary,
-                        d.lastSummaryUpdate ? new Date(d.lastSummaryUpdate) : undefined,
-                        d.watchers,
-                        d.priority,
-                        d.status,
+                        dir.type,
+                        dir.tags,
+                        dir.addedBy,
+                        dir.dateAdded ? new Date(dir.dateAdded) : new Date(),
+                        dir.aiSummary,
+                        dir.lastSummaryUpdate ? new Date(dir.lastSummaryUpdate) : undefined,
+                        dir.watchers,
+                        dir.priority,
+                        dir.status,
                         gitInfo,
                         relatedPRs,
-                        d.lastAccessed ? new Date(d.lastAccessed) : undefined,
-                        d.accessCount
+                        dir.lastAccessed ? new Date(dir.lastAccessed) : undefined,
+                        dir.accessCount
                     );
                     return typedDir;
                 });
@@ -1393,22 +1396,22 @@ ${summary}`;
             {
                 var defaultSection = BookmarkSection.createDefault();
 
-                var reconstructedBookmarks = oldBookmarks.map((d: any) =>
+                var reconstructedBookmarks = oldBookmarks.map((dir: any) =>
                 {
-                    if (d.path && d.type !== undefined)
+                    if (dir.path && dir.type !== undefined)
                     {
                         var gitInfo: any = undefined;
-                        if (d.gitInfo)
+                        if (dir.gitInfo)
                         {
                             gitInfo = {
-                                currentBranch: d.gitInfo.currentBranch,
-                                hasLocalChanges: d.gitInfo.hasLocalChanges,
-                                conflictStatus: d.gitInfo.conflictStatus,
-                                lastSync: d.gitInfo.lastSync ? new Date(d.gitInfo.lastSync) : undefined
+                                currentBranch: dir.gitInfo.currentBranch,
+                                hasLocalChanges: dir.gitInfo.hasLocalChanges,
+                                conflictStatus: dir.gitInfo.conflictStatus,
+                                lastSync: dir.gitInfo.lastSync ? new Date(dir.gitInfo.lastSync) : undefined
                             };
                         }
 
-                        var relatedPRs = (d.relatedPRs || []).map((pr: any) =>
+                        var relatedPRs = (dir.relatedPRs || []).map((pr: any) =>
                         {
                             return {
                                 id: pr.id,
@@ -1424,23 +1427,23 @@ ${summary}`;
                         });
 
                         return new TypedDirectory(
-                            d.path,
-                            d.type,
-                            d.tags,
-                            d.addedBy,
-                            d.dateAdded ? new Date(d.dateAdded) : new Date(),
-                            d.aiSummary,
-                            d.lastSummaryUpdate ? new Date(d.lastSummaryUpdate) : undefined,
-                            d.watchers,
-                            d.priority,
-                            d.status,
+                            dir.path,
+                            dir.type,
+                            dir.tags,
+                            dir.addedBy,
+                            dir.dateAdded ? new Date(dir.dateAdded) : new Date(),
+                            dir.aiSummary,
+                            dir.lastSummaryUpdate ? new Date(dir.lastSummaryUpdate) : undefined,
+                            dir.watchers,
+                            dir.priority,
+                            dir.status,
                             gitInfo,
                             relatedPRs,
-                            d.lastAccessed ? new Date(d.lastAccessed) : undefined,
-                            d.accessCount
+                            dir.lastAccessed ? new Date(dir.lastAccessed) : undefined,
+                            dir.accessCount
                         );
                     }
-                    return d;
+                    return dir;
                 });
 
                 defaultSection.directories = reconstructedBookmarks;
@@ -1503,7 +1506,7 @@ ${summary}`;
         return null;
     }
 
-    private findParentBookmarkByUri(uri: vscode.Uri): { section: BookmarkSection, bookmark: TypedDirectory } | null
+    private findParentByUri(uri: vscode.Uri): { section: BookmarkSection, bookmark: TypedDirectory } | null
     {
         var workspaceRoot = this.workspaceRoot?.[0]?.uri.fsPath;
 
@@ -1543,10 +1546,10 @@ ${summary}`;
             return directMatch;
         }
 
-        return this.findParentBookmarkByUri(uri);
+        return this.findParentByUri(uri);
     }
 
-    private async getCurrentUser(): Promise<string>
+    private async getCurrUser(): Promise<string>
     {
         var gitService = this.getGitService();
         if (gitService)
@@ -1568,7 +1571,7 @@ ${summary}`;
         this.saveSections();
     }
 
-    public async createPullRequest(uri: vscode.Uri): Promise<void>
+    public async createPR(uri: vscode.Uri): Promise<void>
     {
         var workspaceFolder = this.workspaceRoot?.[0];
         if (!workspaceFolder)
@@ -1607,8 +1610,8 @@ ${summary}`;
 
         if (!targetBranch) return; //mora i ovo prosledi
 
-        //samo otvori stranicu za kreiranje pra
-        var repoUrl = await this.getRepositoryUrl();
+        //samo otvori stranicu za kreiranje pra, nemoj pametujes
+        var repoUrl = await this.getRepoUrl();
         if (repoUrl)
         {
             var prUrl = `${repoUrl}/compare/${targetBranch}...${currentBranch}?quick_pull=1&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body || '')}`;
@@ -1616,7 +1619,7 @@ ${summary}`;
         }
     }
 
-    public async linkPullRequest(uri: vscode.Uri, prUrl: string): Promise<void>
+    public async linkPR(uri: vscode.Uri, prUrl: string): Promise<void>
     {
         var result = this.findBookmarkOrParentByUri(uri);
         if (result)
@@ -1649,12 +1652,12 @@ ${summary}`;
         }
     }
 
-    // TODO: ovo mozda treba pomeriti u novu klasu GitHubService
+    // todo uros: ovo mozda treba pomeriti u novu klasu GitHubService
     public async showOnGitHub(uri: vscode.Uri): Promise<void>
     {
         try
         {
-            var repoUrl = await this.getRepositoryUrl();
+            var repoUrl = await this.getRepoUrl();
             if (repoUrl)
             {
                 var workspaceFolder = this.workspaceRoot?.[0];
@@ -1718,7 +1721,7 @@ ${summary}`;
         }
     }
 
-    private async getRepositoryUrl(): Promise<string | null>
+    private async getRepoUrl(): Promise<string | null>
     {
         var workspaceFolder = this.workspaceRoot?.[0];
         if (!workspaceFolder) return null;
@@ -1745,7 +1748,7 @@ ${summary}`;
         return null;
     }
 
-    private async handleGitDiffOption(uri: vscode.Uri, gitService: GitService, option: string, currentBranch: string): Promise<void>
+    private async handleDiffOption(uri: vscode.Uri, gitService: GitService, option: string, currentBranch: string): Promise<void>
     {
         var workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
             ? this.workspaceRoot[0].uri.fsPath
@@ -1787,7 +1790,7 @@ ${summary}`;
 
     private async showWorkingDirectoryDiff(gitService: GitService, absolutePath: string): Promise<void>
     {
-        var diff = await gitService.getWorkingDirectoryChanges(absolutePath);
+        var diff = await gitService.getWorkingDirChanges(absolutePath);
 
         if (diff && diff.startsWith('Error:'))
         {
@@ -1818,7 +1821,7 @@ ${summary}`;
         await this.presentDiffOptions(diff, path.basename(absolutePath), `Local vs ${remoteBranch}`, absolutePath, 'remote', remoteBranch);
     }
 
-    // todo uros mozda dodati opciju za 3-way merge?
+    // todo uros mozda dodati opciju za 3 way merge?
     private async showBranchDiff(gitService: GitService, absolutePath: string): Promise<void>
     {
         var branches = await gitService.getAllBranches();
@@ -2060,7 +2063,7 @@ ${summary}`;
                     message: `Processing commit ${i + 1}/${selectedCommits!.length}: ${commit.hash.substring(0, 8)}`
                 });
 
-                var result = await gitService.cherryPickCommit(commit.hash, absolutePath);
+                var result = await gitService.cherrypickCommit(commit.hash, absolutePath);
                 results.push(result.success ? `✓ ${result.message}` : `✗ ${result.message}`);
             }
 
@@ -2172,7 +2175,7 @@ ${summary}`;
                     message: `Processing commit ${i + 1}/${selectedCommits!.length}: ${commit.hash.substring(0, 8)}`
                 });
 
-                var result = await gitService.cherryPickCommit(commit.hash);
+                var result = await gitService.cherrypickCommit(commit.hash);
                 results.push(result.success ? ` ${result.message}` : ` ${result.message}`);
 
                 if (!result.success && result.message.includes('conflict'))
@@ -2184,7 +2187,7 @@ ${summary}`;
 
                     if (action == 'Abort Cherry-pick')
                     {
-                        await gitService.abortCherryPick();
+                        await gitService.stopCherrypick();
                         results.push('Cherry-pick aborted by user');
                         break;
                     }
@@ -2231,7 +2234,7 @@ ${summary}`;
             cancellable: false
         }, async () =>
         {
-            var result = await gitService.cherryPickRange(fromCommit.commit.hash, toCommit.commit.hash);
+            var result = await gitService.cherrypickRange(fromCommit.commit.hash, toCommit.commit.hash);
 
             if (result.success)
             {

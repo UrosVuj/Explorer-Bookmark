@@ -78,7 +78,7 @@ export class DirectoryProvider implements vscode.TreeDataProvider<FileSystemObje
 
   async showGitDiff(uri: vscode.Uri)
   {
-    await this.directoryOperator.showGitDiff(uri);
+    await this.directoryOperator.showDiff(uri);
   }
 
   async cherryPickChanges(uri: vscode.Uri)
@@ -200,12 +200,12 @@ export class DirectoryProvider implements vscode.TreeDataProvider<FileSystemObje
     }
   }
 
-  async createPullRequest(uri: vscode.Uri)
+  async createPR(uri: vscode.Uri)
   {
-    await this.directoryOperator.createPullRequest(uri);
+    await this.directoryOperator.createPR(uri);
   }
 
-  async linkPullRequest(uri: vscode.Uri)
+  async linkPR(uri: vscode.Uri) //ovo mozda da izbacim?? todo uros
   {
     var prUrl = await vscode.window.showInputBox({
       placeHolder: 'https://github.com/owner/repo/pull/123',
@@ -214,7 +214,7 @@ export class DirectoryProvider implements vscode.TreeDataProvider<FileSystemObje
 
     if (prUrl)
     {
-      await this.directoryOperator.linkPullRequest(uri, prUrl);
+      await this.directoryOperator.linkPR(uri, prUrl);
       this.refresh();
     }
   }

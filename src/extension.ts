@@ -93,8 +93,8 @@ export function activate(context: vscode.ExtensionContext)
     vscode.commands.registerCommand(DirectoryProviderCommands.UpdateStatus, (args) => directoryProvider.updateStatus(args.resourceUri)),
     vscode.commands.registerCommand(DirectoryProviderCommands.UpdatePriority, (args) => directoryProvider.updatePriority(args.resourceUri)),
 
-    vscode.commands.registerCommand(DirectoryProviderCommands.CreatePR, (args) => directoryProvider.createPullRequest(args.resourceUri)),
-    vscode.commands.registerCommand(DirectoryProviderCommands.LinkPR, (args) => directoryProvider.linkPullRequest(args.resourceUri)),
+    vscode.commands.registerCommand(DirectoryProviderCommands.CreatePR, (args) => directoryProvider.createPR(args.resourceUri)),
+    vscode.commands.registerCommand(DirectoryProviderCommands.LinkPR, (args) => directoryProvider.linkPR(args.resourceUri)),
     vscode.commands.registerCommand(DirectoryProviderCommands.ShowGitHub, (args) => directoryProvider.showOnGitHub(args.resourceUri)),
   ]
   );

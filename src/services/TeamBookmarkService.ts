@@ -151,7 +151,7 @@ export class TeamBookmarkService
         if (action == 'Merge with Local')
         {
             var remoteSectionsAbsolute = this.convertToAbsolutePaths(remoteConfig.sections, workspaceRoot);
-            return this.mergeBookmarks(currentSections, remoteSectionsAbsolute);
+            return this.merge(currentSections, remoteSectionsAbsolute);
         }
         else if (action == 'Replace Local')
         {
@@ -237,7 +237,7 @@ export class TeamBookmarkService
             }
             return sections;
         }
-    } private static mergeBookmarks(local: BookmarkSection[], remote: BookmarkSection[]): BookmarkSection[]
+    } private static merge(local: BookmarkSection[], remote: BookmarkSection[]): BookmarkSection[]
     {
         var merged: BookmarkSection[] = [];
         for (var i = 0; i < local.length; i++)
