@@ -389,9 +389,16 @@ export class TeamBookmarkService
                     dir.type,
                     dir.tags,
                     dir.addedBy,
-                    dir.dateAdded,
+                    dir.dateAdded ? new Date(dir.dateAdded) : new Date(),
                     dir.aiSummary,
-                    dir.lastSummaryUpdate
+                    dir.lastSummaryUpdate ? new Date(dir.lastSummaryUpdate) : undefined,
+                    dir.watchers,
+                    dir.priority,
+                    dir.status,
+                    dir.gitInfo,
+                    dir.relatedPRs,
+                    dir.lastAccessed ? new Date(dir.lastAccessed) : undefined,
+                    dir.accessCount
                 );
 
                 absoluteDirs.push(newDir);

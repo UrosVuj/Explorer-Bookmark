@@ -224,11 +224,6 @@ export class DirectoryWorker
                 language: 'markdown'
             });
 
-            var textEditor = await vscode.window.showTextDocument(doc, {
-                viewColumn: vscode.ViewColumn.Beside,
-                preview: false
-            });
-
             await vscode.commands.executeCommand('markdown.showPreview', doc.uri);
         });
     }
@@ -322,17 +317,6 @@ export class DirectoryWorker
             return;
         }
 
-        var workspaceRoot = this.workspaceRoot![0].uri.fsPath;
-        var filePath = uri.fsPath;
-        var relativePath = path.relative(workspaceRoot, filePath);
-        if (relativePath.startsWith('..'))
-        {
-            vscode.window.showErrorMessage(
-                `Cannot cherry-pick: The selected file is outside the current workspace.\n Workspace: ${workspaceRoot} \n File: ${filePath}`
-            );
-            return;
-        }
-
         var branches = await gitService.getAllBranches();
         var branchNames = branches.map(b => b.name).filter(name => !name.startsWith('remotes/'));
         var currentBranch = await gitService.getCurrBranch();
@@ -350,27 +334,7 @@ export class DirectoryWorker
 
         if (!sourceBranch) return;
 
-        var cherryPickOptions = [
-            {
-                label: 'Cherry-pick File Changes',
-                description: 'Apply changes to this specific file from selected commits',
-                option: 'file'
-            },
-            {
-                label: 'Cherry-pick Entire Commits',
-                description: 'Apply entire commits (all files changed in those commits)',
-                option: 'commits'
-            }
-        ];
-
-        var selectedOption = await vscode.window.showQuickPick(cherryPickOptions, {
-            placeHolder: 'Choose cherry-pick type'
-        });
-
-        if (!selectedOption) return;
-
-        var resolvedUri = vscode.Uri.file(filePath);
-        await this.handleCherryPickOption(resolvedUri, gitService, sourceBranch, selectedOption.option);
+        await this.showBranchCommitsForCherryPick(gitService, sourceBranch);
     }
 
     // todo uros: dodati batch staging?
@@ -1231,7 +1195,8 @@ ${summary}`;
             else if (dir.priority == 'low') visualIndicators += '⬇️ ';
 
             // status ikone
-            if (dir.status == 'in-review') visualIndicators += '👀 ';
+            if (dir.status == 'active') visualIndicators += '▶️ ';
+            else if (dir.status == 'in-review') visualIndicators += '👀 ';
             else if (dir.status == 'completed') visualIndicators += '✅ ';
             else if (dir.status == 'archived') visualIndicators += '📦 ';
 
@@ -1852,7 +1817,7 @@ ${summary}`;
             return;
         }
 
-        await this.presentDiffOptions(diff, path.basename(absolutePath), `${branch1} vs ${branch2}`, absolutePath);
+        await this.presentDiffOptions(diff, path.basename(absolutePath), `${branch1} vs ${branch2}`, absolutePath, 'branches', branch1, branch2);
     }
 
     private async showFileHistory(gitService: GitService, absolutePath: string): Promise<void>
@@ -1889,11 +1854,11 @@ ${summary}`;
         await this.presentDiffOptions(diff, path.basename(absolutePath), `Current vs ${selectedCommit.commit.hash.substring(0, 8)}`, absolutePath);
     }
 
-    private async presentDiffOptions(diff: string, fileName: string, compareInfo: string, absolutePath?: string, diffType?: string, remoteBranch?: string): Promise<void>
+    private async presentDiffOptions(diff: string, fileName: string, compareInfo: string, absolutePath?: string, diffType?: string, branch1?: string, branch2?: string): Promise<void>
     {
         if (absolutePath)
         {
-            await this.showSideBySideDiff(absolutePath, compareInfo, diffType, remoteBranch);
+            await this.showSideBySideDiff(absolutePath, compareInfo, diffType, branch1, branch2);
         }
         else
         {
@@ -1916,7 +1881,7 @@ ${summary}`;
         }
     }
 
-    private async showSideBySideDiff(absolutePath: string, compareInfo: string, diffType?: string, remoteBranch?: string): Promise<void>
+    private async showSideBySideDiff(absolutePath: string, compareInfo: string, diffType?: string, branch1?: string, branch2?: string): Promise<void>
     {
         var workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
             ? this.workspaceRoot[0].uri.fsPath
@@ -1936,10 +1901,15 @@ ${summary}`;
             var compareRef = 'HEAD';
             var compareLabel = 'HEAD';
 
-            if (diffType == 'remote' && remoteBranch)
+            if (diffType == 'remote' && branch1)
             {
-                compareRef = remoteBranch;
-                compareLabel = remoteBranch;
+                compareRef = branch1;
+                compareLabel = branch1;
+            }
+            else if (diffType == 'branches' && branch1)
+            {
+                compareRef = branch1;
+                compareLabel = branch1;
             }
 
             var git = simpleGit(workspaceRoot);
@@ -1980,110 +1950,6 @@ ${summary}`;
                 vscode.window.showErrorMessage(`Could not open diff view: ${error}`);
             }
         }
-    }
-
-    private async handleCherryPickOption(uri: vscode.Uri, gitService: GitService, sourceBranch: string, option: string): Promise<void>
-    {
-        var absolutePath = uri.fsPath;
-
-        try
-        {
-            switch (option)
-            {
-                case 'file':
-                    await this.showFileCommitsForCherryPick(gitService, sourceBranch, absolutePath);
-                    break;
-                case 'commits':
-                    await this.showBranchCommitsForCherryPick(gitService, sourceBranch);
-                    break;
-            }
-        }
-        catch (error)
-        {
-            vscode.window.showErrorMessage(`Error during cherry-pick: ${error}`);
-        }
-    }
-
-    private async showFileCommitsForCherryPick(gitService: GitService, sourceBranch: string, absolutePath: string): Promise<void>
-    {
-        var commits = await gitService.getCommitsFromBranch(sourceBranch, absolutePath, 20);
-
-        if (commits.length == 0)
-        {
-            vscode.window.showInformationMessage(`No commits found for this file in branch '${sourceBranch}'.`);
-            return;
-        }
-
-        var commitItems = commits.map(commit => ({
-            label: `${commit.hash.substring(0, 8)} - ${commit.message.split('\n')[0]}`,
-            description: `${commit.author}  :  ${commit.date.toLocaleDateString()}`,
-            detail: commit.message.length > 50 ? commit.message.substring(0, 50) + '...' : commit.message,
-            commit
-        }));
-
-        var selectedCommits = await vscode.window.showQuickPick(commitItems, {
-            placeHolder: `Select commits to cherry-pick for ${path.basename(absolutePath)}`,
-            canPickMany: true
-        });
-
-        if (!selectedCommits || selectedCommits.length == 0) return;
-
-        var commitMessages = '';
-        for (var i = 0; i < selectedCommits.length; i++)
-        {
-            var shortHash = selectedCommits[i].commit.hash.substring(0, 8);
-            var msg = selectedCommits[i].commit.message.split('\n')[0];
-            commitMessages += shortHash + ': ' + msg;
-            if (i < selectedCommits.length - 1)
-            {
-                commitMessages += '\n';
-            }
-        }
-
-        var confirmation = await vscode.window.showWarningMessage(
-            `Cherry-pick ${selectedCommits.length} commit(s) for file '${path.basename(absolutePath)}'?\n\n${commitMessages}`,
-            'Yes, Cherry-pick', 'Cancel'
-        );
-
-        if (confirmation !== 'Yes, Cherry-pick') return;
-
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: "Cherry-picking file changes...",
-            cancellable: false
-        }, async (progress) =>
-        {
-            var results: string[] = [];
-
-            for (var i = 0; i < selectedCommits!.length; i++)
-            {
-                var commit = selectedCommits![i].commit;
-                progress.report({
-                    increment: (100 / selectedCommits!.length),
-                    message: `Processing commit ${i + 1}/${selectedCommits!.length}: ${commit.hash.substring(0, 8)}`
-                });
-
-                var result = await gitService.cherrypickCommit(commit.hash, absolutePath);
-                results.push(result.success ? `✓ ${result.message}` : `✗ ${result.message}`);
-            }
-
-
-            var successCount = results.filter(r => r.startsWith('✓')).length;
-            var failureCount = results.filter(r => r.startsWith('✗')).length;
-
-            var resultMessage = `Cherry-pick completed!\n\n Success: ${successCount}\n❌ Failed: ${failureCount}\n\nDetails:\n${results.join('\n')}`;
-
-            if (failureCount == 0)
-            {
-                vscode.window.showInformationMessage('All cherry-picks completed successfully!')
-                    .then(() => this.showDetailedResults(resultMessage));
-            }
-            else
-            {
-                vscode.window.showWarningMessage(`Cherry-pick completed with ${failureCount} failures`)
-                    .then(() => this.showDetailedResults(resultMessage));
-            }
-        });
     }
 
     // TODO: napraviti unified view za results umesto ovako

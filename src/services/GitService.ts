@@ -432,86 +432,31 @@ export class GitService
         return commits;
     }
 
-    async cherrypickCommit(commitHash: string, filePath?: string): Promise<{ success: boolean, message: string }>
+    async cherrypickCommit(commitHash: string): Promise<{ success: boolean, message: string }>
     {
-        if (filePath)
-        {
-            var normalizedWorkspace = path.resolve(this.workspaceRoot);
-            var normalizedFile = path.resolve(filePath);
-            var relativePath = path.relative(normalizedWorkspace, normalizedFile);
+        await this.git.raw(['cherry-pick', commitHash]);
 
-            var fileContent = await this.git.show([commitHash + ':' + relativePath]);
+        var shortHash = commitHash.substring(0, 8);
+        var msg = 'cherry-picked commit ' + shortHash;
 
-            var fs = require('fs');
-            var fullPath = path.isAbsolute(filePath) ? filePath : path.join(this.workspaceRoot, relativePath);
-            fs.writeFileSync(fullPath, fileContent);
-
-            var fileName = path.basename(relativePath);
-            var shortHash = commitHash.substring(0, 8);
-            var msg = 'cherry-picked ' + fileName + ' from ' + shortHash;
-
-            return {
-                success: true,
-                message: msg
-            };
-        }
-        else
-        {
-            await this.git.raw(['cherry-pick', commitHash]);
-
-            var shortHash = commitHash.substring(0, 8);
-            var msg = 'cherry-picked commit ' + shortHash;
-
-            return {
-                success: true,
-                message: msg
-            };
-        }
+        return {
+            success: true,
+            message: msg
+        };
     }
 
-    async cherrypickRange(fromCommit: string, toCommit: string, filePath?: string): Promise<{ success: boolean, message: string }>
+    async cherrypickRange(fromCommit: string, toCommit: string): Promise<{ success: boolean, message: string }>
     {
-        if (filePath)
-        {
-            var commits = await this.git.log([fromCommit + '..' + toCommit, '--reverse']);
-            var results: string[] = [];
+        await this.git.raw(['cherry-pick', fromCommit + '..' + toCommit]);
 
-            for (var i = 0; i < commits.all.length; i++)
-            {
-                var commit = commits.all[i];
-                var result = await this.cherrypickCommit(commit.hash, filePath);
-                var shortHash = commit.hash.substring(0, 8);
-                var firstLine = commit.message.split('\n')[0];
+        var shortFrom = fromCommit.substring(0, 8);
+        var shortTo = toCommit.substring(0, 8);
+        var msg = 'cherry-picked range ' + shortFrom + '..' + shortTo;
 
-                if (result.success)
-                {
-                    results.push('Success: ' + shortHash + ': ' + firstLine);
-                }
-                else
-                {
-                    results.push('Fail: ' + shortHash + ': ' + result.message);
-                }
-            }
-
-            var msg = 'Cherry-pick range results:\n' + results.join('\n');
-            return {
-                success: true,
-                message: msg
-            };
-        }
-        else
-        {
-            await this.git.raw(['cherry-pick', fromCommit + '..' + toCommit]);
-
-            var shortFrom = fromCommit.substring(0, 8);
-            var shortTo = toCommit.substring(0, 8);
-            var msg = 'cherry-picked range ' + shortFrom + '..' + shortTo;
-
-            return {
-                success: true,
-                message: msg
-            };
-        }
+        return {
+            success: true,
+            message: msg
+        };
     }
 
     async stopCherrypick(): Promise<boolean>
