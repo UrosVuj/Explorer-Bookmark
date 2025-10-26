@@ -17,17 +17,17 @@ export class DirectoryProvider implements vscode.TreeDataProvider<FileSystemObje
   {
     try
     {
-      const workspaceFolders = vscode.workspace.workspaceFolders;
+      var workspaceFolders = vscode.workspace.workspaceFolders;
       if (workspaceFolders && workspaceFolders.length > 0)
       {
-        const gitService = new GitService(workspaceFolders[0].uri.fsPath);
+        var gitService = new GitService(workspaceFolders[0].uri.fsPath);
         return await gitService.getCurrentGitUser();
       }
     } catch (error)
     {
       console.error('Error getting git user:', error);
     }
-    // fallback
+
     return vscode.env.machineId.substring(0, 8);
   }
 
@@ -126,7 +126,6 @@ export class DirectoryProvider implements vscode.TreeDataProvider<FileSystemObje
     await this.directoryOperator.gitOperations();
   }
 
-  // team bookmark export/import
   async exportTeamBookmarks()
   {
     await this.directoryOperator.exportTeamBookmarks();
@@ -159,47 +158,45 @@ export class DirectoryProvider implements vscode.TreeDataProvider<FileSystemObje
     }
 
     var status = await vscode.window.showQuickPick([
-      { label: 'active', description: 'Item is actively being worked on' },
-      { label: 'in-review', description: 'Item is under review' },
-      { label: 'completed', description: 'Item work is completed' },
-      { label: 'archived', description: 'Item is archived' }
+      { label: 'active', description: 'aktivno radim na ovome' },
+      { label: 'in-review', description: 'ceka review' },
+      { label: 'completed', description: 'zavrseno' },
+      { label: 'archived', description: 'arhivirano' }
     ], {
-      placeHolder: 'Select new status'
+      placeHolder: 'novi status?'
     });
 
     if (status)
     {
       var currentUser = await this.getCurrentUser();
       item.updateStatus(status.label as any, currentUser);
-
       await this.directoryOperator.saveItems();
-
       this.refresh();
-      vscode.window.showInformationMessage(`Status updated to ${status.label}`);
+      vscode.window.showInformationMessage(`status: ${status.label}`);
     }
   }
 
   async updatePriority(uri: vscode.Uri)
   {
-    const item = await this.directoryOperator.getTypedDirectoryForUri(uri);
+    var item = await this.directoryOperator.getTypedDirectoryForUri(uri);
     if (!item) return;
 
-    const priority = await vscode.window.showQuickPick([
-      { label: 'low', description: 'Low priority item' },
-      { label: 'medium', description: 'Medium priority item' },
-      { label: 'high', description: 'High priority item' },
-      { label: 'critical', description: 'Critical priority item' }
+    var priority = await vscode.window.showQuickPick([
+      { label: 'low' },
+      { label: 'medium' },
+      { label: 'high' },
+      { label: 'critical' }
     ], {
-      placeHolder: 'Select new priority'
+      placeHolder: 'prioritet?'
     });
 
     if (priority)
     {
-      const currentUser = await this.getCurrentUser();
+      var currentUser = await this.getCurrentUser();
       item.updatePriority(priority.label as any, currentUser);
       await this.directoryOperator.saveItems();
       this.refresh();
-      vscode.window.showInformationMessage(`Priority updated to ${priority.label}`);
+      vscode.window.showInformationMessage('prioritet: ' + priority.label);
     }
   }
 
@@ -210,9 +207,9 @@ export class DirectoryProvider implements vscode.TreeDataProvider<FileSystemObje
 
   async linkPullRequest(uri: vscode.Uri)
   {
-    const prUrl = await vscode.window.showInputBox({
+    var prUrl = await vscode.window.showInputBox({
       placeHolder: 'https://github.com/owner/repo/pull/123',
-      prompt: 'Enter the GitHub PR URL to link'
+      prompt: 'github pr link'
     });
 
     if (prUrl)
@@ -225,12 +222,6 @@ export class DirectoryProvider implements vscode.TreeDataProvider<FileSystemObje
   async showOnGitHub(uri: vscode.Uri)
   {
     await this.directoryOperator.showOnGitHub(uri);
-  }
-
-  // TODO: sta tacno ovo radi
-  async generateShareableConfig()
-  {
-    await this.directoryOperator.generateShareableConfig();
   }
 
   removeAllItems()

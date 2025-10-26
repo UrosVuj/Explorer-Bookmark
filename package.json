@@ -43,7 +43,7 @@
     "viewsWelcome": [
       {
         "view": "explorer-bookmark",
-        "contents": "Right click and add a file or folder.\n\nClick the + icon above to add a new section to organize your bookmarks.\n\n✨ New Features:\n• AI-powered file summaries\n• Team bookmark sharing\n• Tags for bookmarks\n• Export/import bookmarks for collaboration"
+        "contents": "Right click and add a file or folder.\n\nClick the + icon above to add a new section to organize your bookmarks.\n\n✨ New Features:\n  AI-powered file summaries\n  Team bookmark sharing\n  Tags for bookmarks\n  Export/import bookmarks for collaboration"
       }
     ],
     "views": {
@@ -424,22 +424,15 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "lint": "eslint src --ext ts"
   },
   "devDependencies": {
-    "@types/glob": "^7.2.0",
-    "@types/mocha": "^8.2.3",
     "@types/node": "^12.20.55",
     "@types/vscode": "^1.55.0",
     "@typescript-eslint/eslint-plugin": "^4.33.0",
     "@typescript-eslint/parser": "^4.33.0",
     "eslint": "^7.32.0",
-    "glob": "^7.2.3",
-    "mocha": "^10.2.0",
-    "typescript": "^4.9.5",
-    "vscode-test": "^1.6.1"
+    "typescript": "^4.9.5"
   },
   "dependencies": {
     "simple-git": "^3.28.0"

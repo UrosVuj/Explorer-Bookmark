@@ -18,14 +18,18 @@ export class FileSystemObject extends vscode.TreeItem
     this.tooltip = uri.fsPath;
     this.resourceUri = uri;
     this.sectionId = sectionId;
-    this.command =
-      collapsibleState === vscode.TreeItemCollapsibleState.None
-        ? {
-          arguments: [this],
-          command: DirectoryProviderCommands.OpenItem,
-          title: this.label,
-        }
-        : undefined;
+
+    if (collapsibleState == vscode.TreeItemCollapsibleState.None)
+    {
+      this.command = {
+        arguments: [this],
+        command: DirectoryProviderCommands.OpenItem,
+        title: this.label
+      };
+    } else
+    {
+      this.command = undefined;
+    }
   }
   setContextValue(value: string)
   {

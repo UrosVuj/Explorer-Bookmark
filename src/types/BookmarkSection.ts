@@ -20,7 +20,7 @@ export class BookmarkSection
 
     removeDirectory(path: string): boolean
     {
-        const index = this.directories.findIndex(dir => dir.path === path);
+        const index = this.directories.findIndex(dir => dir.path == path);
         if (index > -1)
         {
             this.directories.splice(index, 1);

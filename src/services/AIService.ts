@@ -1,43 +1,44 @@
 import * as vscode from "vscode";
 import * as path from "path";
 
-// AI analiza fajlova pomocu Copilota
+// AI analiza fajlova pomocu copilota
 export class AIService
 {
-    private static readonly MAX_FILE_SIZE = 100000;
-    private static readonly SUPPORTED_EXTENSIONS = [
-        '.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.cs', '.cpp', '.c', '.h',
-        '.go', '.rs', '.php', '.rb', '.swift', '.kt', '.dart', '.scala', '.sh',
-        '.md', '.txt', '.json', '.yaml', '.yml', '.xml', '.html', '.css', '.scss',
-        '.sql', '.r', '.m', '.pl', '.lua', '.vim', '.dockerfile', '.gitignore'
-    ];
-
+    // summary za fajl
     public static async generateFileSummary(uri: vscode.Uri): Promise<string>
     {
-        const ext = path.extname(uri.fsPath).toLowerCase();
-        if (!this.SUPPORTED_EXTENSIONS.includes(ext))
+        var ext = path.extname(uri.fsPath).toLowerCase();
+
+        // proveri da li je dobar tip fajla
+        var supportedExts = ['.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.cs', '.cpp', '.c', '.h', '.go', '.rs', '.php', '.rb', '.swift', '.kt', '.dart', '.scala', '.sh', '.md', '.txt', '.json', '.yaml', '.yml', '.xml', '.html', '.css', '.scss', '.sql', '.r', '.m', '.pl', '.lua', '.vim', '.dockerfile', '.gitignore'];
+
+        if (supportedExts.includes(ext) == false)
         {
             return "File type not supported for AI analysis.";
         }
 
-        const stat = await vscode.workspace.fs.stat(uri);
-        if (stat.size > this.MAX_FILE_SIZE)
+        var stat = await vscode.workspace.fs.stat(uri);
+        var fileSize = stat.size;
+        if (fileSize > 100000) // 100kb max
         {
             return "File too large for AI analysis (>100KB).";
         }
 
-        // citaj fajl
-        const content = await vscode.workspace.fs.readFile(uri);
-        const textContent = Buffer.from(content).toString('utf8');
+        // citaj fajl sad
+        var content = await vscode.workspace.fs.readFile(uri);
+        var textContent = Buffer.from(content).toString('utf8');
+        var fileName = path.basename(uri.fsPath);
 
-        return await this.generateCopilotSummary(textContent, path.basename(uri.fsPath), ext);
+        var summaryResult = await this.getCopilotSummary(textContent, fileName, ext);
+        return summaryResult;
     }
 
     public static async generateCustomSummary(prompt: string): Promise<string>
     {
         try
         {
-            return await this.generateCopilotCustomSummary(prompt);
+            var result = await this.getCustomCopilotSummary(prompt);
+            return result;
         } catch (error)
         {
             console.error('Error generating custom AI summary:', error);
@@ -45,186 +46,212 @@ export class AIService
         }
     }
 
-    private static async generateCopilotSummary(content: string, filename: string, extension: string): Promise<string>
+    // dobavi summary od copilota
+    private static async getCopilotSummary(content: string, filename: string, extension: string): Promise<string>
     {
         try
         {
-            const prompt = this.createAnalysisPrompt(content, filename, extension);
+            var promptText = this.makePrompt(content, filename, extension);
 
             // zovi copilot api
-            const copilotResponse = await this.invokeCopilotAPI(prompt);
+            var copilotResponse = await this.callCopilotAPI(promptText);
 
             if (copilotResponse)
             {
-                return this.formatCopilotResponse(copilotResponse, filename);
-            } else
+                var formatted = this.addFooter(copilotResponse, filename);
+                return formatted;
+            }
+            else
             {
-                return "GitHub Copilot is required for AI summaries. Please ensure GitHub Copilot works";
+                return "GitHub Copilot not working rn. Make sure it's installed";
             }
 
         }
         catch (error)
         {
             console.error('Error invoking GitHub Copilot:', error);
-            return "GitHub Copilot is required for AI summaries. Please ensure GitHub Copilot works";
+            return "Copilot error, check if extension works";
         }
     }
 
-    private static async generateCopilotCustomSummary(prompt: string): Promise<string>
+    private static async getCustomCopilotSummary(prompt: string): Promise<string>
     {
         try
         {
-            const copilotResponse = await this.invokeCopilotAPI(prompt);
+            var copilotResponse = await this.callCopilotAPI(prompt);
 
             if (copilotResponse)
             {
-                return this.formatCopilotResponse(copilotResponse, 'Git Diff Analysis');
-            } else
+                var formatted = this.addFooter(copilotResponse, 'Git Diff Analysis');
+                return formatted;
+            }
+            else
             {
-                return "GitHub Copilot is required for diff analysis. Please ensure GitHub Copilot works";
+                return "Copilot needed for diff";
             }
         } catch (error)
         {
             console.error('Error invoking GitHub Copilot for custom prompt:', error);
-            return "GitHub Copilot is required for diff analysis. Please ensure GitHub Copilot works";
+            return "Copilot error";
         }
     }
 
-    private static createAnalysisPrompt(content: string, filename: string, extension: string): string
+    // napravi prompt
+    private static makePrompt(content: string, filename: string, extension: string): string
     {
-        const truncatedContent = content.length > 3000 ? content.substring(0, 3000) + "..." : content;
+        var truncatedContent = content;
+        if (content.length > 3000)
+        {
+            truncatedContent = content.substring(0, 3000) + "...";  // skrati ako je predug
+        }
 
-        return `Please analyze this ${extension} file named "${filename}" and provide a comprehensive summary:
+        var extName = extension.substring(1);
 
-\`\`\`${extension.substring(1)}
-${truncatedContent}
-\`\`\`
+        // buildujem string manuelno jer ne znam bolji nacin lol
+        var promptString = "Please analyze this " + extension + " file named " + filename + " and provide a comprehensive summary:\n\n";
+        promptString += "```" + extName + "\n";
+        promptString += truncatedContent + "\n";
+        promptString += "\n" + "\n";
+        promptString += "Please provide:\n";
+        promptString += "1. Purpose: What does this file do?\n";
+        promptString += "2. Key Components: Main functions, classes, or sections\n";
+        promptString += "3. Dependencies: Important imports or external dependencies\n";
+        promptString += "4. Complexity: Estimate of code complexity (Low/Medium/High)\n";
+        promptString += "5. Framework/Technology: Any specific frameworks or technologies used\n";
+        promptString += "6. Notable Patterns: Design patterns, architectural decisions, or code style\n";
+        promptString += "7. Recommendations: Any suggestions for improvement or important notes\n\n";
+        promptString += "Format the response in markdown with clear sections and bullet points.";
 
-Please provide:
-1. **Purpose**: What does this file do?
-2. **Key Components**: Main functions, classes, or sections
-3. **Dependencies**: Important imports or external dependencies
-4. **Complexity**: Estimate of code complexity (Low/Medium/High)
-5. **Framework/Technology**: Any specific frameworks or technologies used
-6. **Notable Patterns**: Design patterns, architectural decisions, or code style
-7. **Recommendations**: Any suggestions for improvement or important notes
-
-Format the response in markdown with clear sections and bullet points.`;
+        return promptString;
     }
 
     // Ova metoda glavna!!
-    private static async invokeCopilotAPI(prompt: string): Promise<string | null>
+    private static async callCopilotAPI(prompt: string): Promise<string | null>
     {
         try
         {
-            // check if GitHub Copilot extension is available
-            const copilotExtension = vscode.extensions.getExtension('GitHub.copilot');
+            var copilotExtension = vscode.extensions.getExtension('GitHub.copilot');
             if (!copilotExtension)
             {
                 console.log('GitHub Copilot extension not found');
                 return null;
             }
 
-            // ensure the extension is activated
-            if (!copilotExtension.isActive)
+            var isActive = copilotExtension.isActive;
+            if (!isActive)
             {
                 await copilotExtension.activate();
             }
 
-            // try to use GitHub Copilot Chat API if available
-            try
+            // probaj novi api prvo
+            var hasLM = 'lm' in vscode;
+            if (hasLM)
             {
-                // first try the newer language model API (VS Code 1.90+)
-                if ('lm' in vscode && typeof (vscode as any).lm?.selectChatModels === 'function')
+                var lmAPI = (vscode as any).lm;
+                if (lmAPI && typeof lmAPI.selectChatModels == 'function')
                 {
-                    const models = await (vscode as any).lm.selectChatModels({
+                    var models = await lmAPI.selectChatModels({
                         vendor: 'copilot',
                         family: 'gpt-4'
                     });
 
                     if (models.length > 0)
                     {
-                        const model = models[0];
-                        const messages = [
-                            (vscode as any).LanguageModelChatMessage.User(prompt)
-                        ];
+                        var model = models[0];
+                        var userMessage = (vscode as any).LanguageModelChatMessage.User(prompt);
+                        var messages = [userMessage];
 
-                        const response = await model.sendRequest(messages, {}, new vscode.CancellationTokenSource().token);
+                        var token = new vscode.CancellationTokenSource().token;
+                        var response = await model.sendRequest(messages, {}, token);
 
-                        let result = '';
-                        for await (const chunk of response.text)
+                        var result = '';
+                        for await (var chunk of response.text)
                         {
                             result += chunk;
                         }
 
-                        return result;
-                    }
-                }
-            } catch (lmError)
-            {
-                console.log('Language model API not available, trying alternative methods:', lmError);
-            }
-
-            // try using Copilot commands
-            try
-            {
-                // try different command variations that might be available
-                const commands = [
-                    'github.copilot.generate',
-                    'github.copilot.chat.explainThis',
-                    'github.copilot.interactiveEditor.generate',
-                    'copilot.generate'
-                ];
-
-                for (const command of commands)
-                {
-                    try
-                    {
-                        const result = await vscode.commands.executeCommand(command, {
-                            prompt: prompt,
-                            language: 'markdown'
-                        });
-
-                        if (result && typeof result === 'string')
+                        if (result.length > 0)
                         {
                             return result;
                         }
-                    } catch (cmdError)
-                    {
-                        // try next command
-                        continue;
                     }
                 }
             }
-            catch (commandError)
-            {
-                console.error('Error using Copilot commands:', commandError);
-            }
 
-            // try accessing Copilot extension API directly
+            // probaj stare komande sad
+            var cmd1 = 'github.copilot.generate';
             try
             {
-                const api = copilotExtension.exports;
-                if (api && typeof api.generateCompletion === 'function')
+                var res1 = await vscode.commands.executeCommand(cmd1, {
+                    prompt: prompt,
+                    language: 'markdown'
+                });
+                if (res1 && typeof res1 == 'string')
                 {
-                    const result = await api.generateCompletion(prompt);
-                    if (result)
+                    return res1;
+                }
+            } catch (e1) { }
+
+            var cmd2 = 'github.copilot.chat.explainThis';
+            try
+            {
+                var res2 = await vscode.commands.executeCommand(cmd2, {
+                    prompt: prompt,
+                    language: 'markdown'
+                });
+                if (res2 && typeof res2 == 'string')
+                {
+                    return res2;
+                }
+            } catch (e2) { }
+
+            var cmd3 = 'github.copilot.interactiveEditor.generate';
+            try
+            {
+                var res3 = await vscode.commands.executeCommand(cmd3, {
+                    prompt: prompt,
+                    language: 'markdown'
+                });
+                if (res3 && typeof res3 == 'string')
+                {
+                    return res3;
+                }
+            } catch (e3) { }
+
+            var cmd4 = 'copilot.generate';
+            try
+            {
+                var res4 = await vscode.commands.executeCommand(cmd4, {
+                    prompt: prompt,
+                    language: 'markdown'
+                });
+                if (res4 && typeof res4 == 'string')
+                {
+                    return res4;
+                }
+            } catch (e4) { }
+
+            // probaj direktan api ako ima
+            var api = copilotExtension.exports;
+            if (api)
+            {
+                if (typeof api.generateCompletion == 'function')
+                {
+                    var apiResult = await api.generateCompletion(prompt);
+                    if (apiResult)
                     {
-                        return result;
+                        return apiResult;
                     }
                 }
-            } catch (apiError)
-            {
-                console.error('Error accessing Copilot API:', apiError);
             }
 
-            // if all methods fail, show a helpful message
+            // nista ne radi, pokazi poruku korisniku
             vscode.window.showInformationMessage(
-                'GitHub Copilot is installed but the API is not accessible. Please ensure you have the latest version and are signed in.',
+                'GitHub Copilot is installed but the API is not accessible.',
                 'Open Copilot Chat'
             ).then(action =>
             {
-                if (action === 'Open Copilot Chat')
+                if (action == 'Open Copilot Chat')
                 {
                     vscode.commands.executeCommand('github.copilot.interactiveEditor.explain');
                 }
@@ -238,10 +265,13 @@ Format the response in markdown with clear sections and bullet points.`;
         }
     }
 
-    private static formatCopilotResponse(response: string, filename: string): string
+    // dodaj futer na kraj
+    private static addFooter(response: string, filename: string): string
     {
-        const footer = `\n\n---\n\n*Summary generated on ${new Date().toLocaleString()}*`;
-
-        return response + footer;
+        var now = new Date();
+        var dateStr = now.toLocaleString();
+        var footer = `\n\n---\n\n*Summary generated on ${dateStr}`;
+        var finalResponse = response + footer;
+        return finalResponse;
     }
 }

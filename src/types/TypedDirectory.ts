@@ -7,7 +7,7 @@ export interface GitInfo
   hasLocalChanges?: boolean;
   remoteBranch?: string;
   lastSync?: Date;
-  conflictStatus?: 'none' | 'conflicts' | 'needs-merge';
+  conflictStatus?: string;  // 'none', 'conflicts', 'needs-merge'
 }
 
 export interface PullRequestInfo
@@ -15,7 +15,7 @@ export interface PullRequestInfo
   id: number;
   title: string;
   url: string;
-  status: 'open' | 'closed' | 'merged' | 'draft';
+  status: string;  // open, closed, merged, draft
   author: string;
   created: Date;
   updated: Date;
@@ -34,8 +34,8 @@ export class TypedDirectory
   lastSummaryUpdate?: Date;
 
   watchers: string[];
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  status: 'active' | 'archived' | 'in-review' | 'completed';
+  priority: string;  // low, medium, high, critical
+  status: string;    // active, archived, in-review, completed
 
   gitInfo?: GitInfo;
   relatedPRs: PullRequestInfo[];
@@ -52,8 +52,8 @@ export class TypedDirectory
     aiSummary?: string,
     lastSummaryUpdate?: Date,
     watchers?: string[],
-    priority?: 'low' | 'medium' | 'high' | 'critical',
-    status?: 'active' | 'archived' | 'in-review' | 'completed',
+    priority?: string,
+    status?: string,
     gitInfo?: GitInfo,
     relatedPRs?: PullRequestInfo[],
     lastAccessed?: Date,
@@ -96,19 +96,17 @@ export class TypedDirectory
 
   updateStatus(newStatus: TypedDirectory['status'], updatedBy: string): void
   {
-    const oldStatus = this.status;
     this.status = newStatus;
   }
 
   updatePriority(newPriority: TypedDirectory['priority'], updatedBy: string): void 
   {
-    const oldPriority = this.priority;
     this.priority = newPriority;
   }
 
   addRelatedPR(prInfo: PullRequestInfo): void 
   {
-    const exists = this.relatedPRs.find(pr => pr.id === prInfo.id);
+    const exists = this.relatedPRs.find(pr => pr.id == prInfo.id);
     if (!exists)
     {
       this.relatedPRs.push(prInfo);
@@ -120,10 +118,9 @@ export async function buildTypedDirectory(uri: vscode.Uri, tags?: string[], user
 {
   const type = (await vscode.workspace.fs.stat(uri)).type;
 
-  let username = userName;
+  var username = userName;
   if (!username)
   {
-    // treba nam git username
     try
     {
       const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -139,7 +136,6 @@ export async function buildTypedDirectory(uri: vscode.Uri, tags?: string[], user
       }
     } catch (error)
     {
-      console.error('Error getting git user in buildTypedDirectory:', error);
       username = vscode.env.machineId.substring(0, 8);
     }
   }

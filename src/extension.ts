@@ -14,11 +14,11 @@ export function activate(context: vscode.ExtensionContext)
       'Show Documentation', 'Create First Bookmark'
     ).then(selection =>
     {
-      if (selection === 'Show Documentation') 
+      if (selection == 'Show Documentation') 
       {
         vscode.env.openExternal(vscode.Uri.parse('https://github.com/UrosVuj/Explorer-Bookmark#readme'));
       }
-      else if (selection === 'Create First Bookmark')
+      else if (selection == 'Create First Bookmark')
       {
         vscode.commands.executeCommand('workbench.view.explorer');
       }
