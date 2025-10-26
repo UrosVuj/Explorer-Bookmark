@@ -1,15 +1,14 @@
 import * as vscode from "vscode";
 import { FileSystemObject } from "../types/FileSystemObject";
 import { DirectoryWorker } from "../operator/DirectoryWorker";
-import { GitHubService } from "../services/GitHubService";
 import { GitService } from "../services/GitService";
 
 export class DirectoryProvider implements vscode.TreeDataProvider<FileSystemObject>
 {
-  private _onDidChangeTreeData: vscode.EventEmitter<FileSystemObject | undefined | null | void> =
-    new vscode.EventEmitter<FileSystemObject | undefined | null | void>();
+  private _onDidChangeTreeData: vscode.EventEmitter<void> =
+    new vscode.EventEmitter<void>();
 
-  readonly onDidChangeTreeData: vscode.Event<FileSystemObject | undefined | null | void> =
+  readonly onDidChangeTreeData: vscode.Event<void> =
     this._onDidChangeTreeData.event;
 
   constructor(private directoryOperator: DirectoryWorker) { }
@@ -42,13 +41,13 @@ export class DirectoryProvider implements vscode.TreeDataProvider<FileSystemObje
     return await this.directoryOperator.getChildren(element);
   }
 
-  async selectItem(uri: vscode.Uri | undefined, sectionId?: string)
+  async selectItem(uri: vscode.Uri, sectionId?: string)
   {
     await this.directoryOperator.selectItem(uri, sectionId);
     this.refresh();
   }
 
-  async removeItem(uri: vscode.Uri | undefined, sectionId?: string)
+  async removeItem(uri: vscode.Uri, sectionId?: string)
   {
     await this.directoryOperator.removeItem(uri, sectionId);
     this.refresh();
@@ -153,10 +152,13 @@ export class DirectoryProvider implements vscode.TreeDataProvider<FileSystemObje
 
   async updateStatus(uri: vscode.Uri)
   {
-    const item = await this.directoryOperator.getTypedDirectoryForUri(uri);
-    if (!item) return;
+    var item = await this.directoryOperator.getTypedDirectoryForUri(uri);
+    if (!item)
+    {
+      return;
+    }
 
-    const status = await vscode.window.showQuickPick([
+    var status = await vscode.window.showQuickPick([
       { label: 'active', description: 'Item is actively being worked on' },
       { label: 'in-review', description: 'Item is under review' },
       { label: 'completed', description: 'Item work is completed' },
@@ -167,9 +169,11 @@ export class DirectoryProvider implements vscode.TreeDataProvider<FileSystemObje
 
     if (status)
     {
-      const currentUser = await this.getCurrentUser();
+      var currentUser = await this.getCurrentUser();
       item.updateStatus(status.label as any, currentUser);
+
       await this.directoryOperator.saveItems();
+
       this.refresh();
       vscode.window.showInformationMessage(`Status updated to ${status.label}`);
     }
@@ -240,3 +244,4 @@ export class DirectoryProvider implements vscode.TreeDataProvider<FileSystemObje
     this._onDidChangeTreeData.fire();
   }
 }
+

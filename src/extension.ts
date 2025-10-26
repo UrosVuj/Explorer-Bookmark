@@ -3,7 +3,6 @@ import { DirectoryProvider } from "./provider/DirectoryProvider";
 import { DirectoryWorker } from "./operator/DirectoryWorker";
 import { DirectoryProviderCommands } from "./commands/CrudCommands";
 import { vsCodeCommands } from "./commands/CrudCommands";
-import { GitHubService } from "./services/GitHubService";
 
 export function activate(context: vscode.ExtensionContext) 
 {
@@ -97,11 +96,6 @@ export function activate(context: vscode.ExtensionContext)
     vscode.commands.registerCommand(DirectoryProviderCommands.CreatePR, (args) => directoryProvider.createPullRequest(args.resourceUri)),
     vscode.commands.registerCommand(DirectoryProviderCommands.LinkPR, (args) => directoryProvider.linkPullRequest(args.resourceUri)),
     vscode.commands.registerCommand(DirectoryProviderCommands.ShowGitHub, (args) => directoryProvider.showOnGitHub(args.resourceUri)),
-    vscode.commands.registerCommand(DirectoryProviderCommands.SetupGitHub, async () =>
-    {
-      const githubService = new GitHubService();
-      await githubService.setupToken();
-    }),
   ]
   );
 }

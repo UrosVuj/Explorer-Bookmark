@@ -443,16 +443,13 @@ export class GitService
             {
                 const normalizedPath = relativePath.replace(/\\/g, '/');
 
-                // Check if file has changes (modified, untracked, deleted, etc.)
-                const hasChanges = [
-                    ...status.modified,
-                    ...status.not_added,
-                    ...status.deleted,
-                    ...status.created,
-                    ...status.conflicted
-                ].some(file => file === normalizedPath || file === relativePath);
+                const hasChanges =
+                    status.modified.includes(normalizedPath) ||
+                    status.not_added.includes(normalizedPath) ||
+                    status.deleted.includes(normalizedPath) ||
+                    status.created.includes(normalizedPath) ||
+                    status.conflicted.includes(normalizedPath);
 
-                // Check if already staged
                 const isStaged = status.staged.includes(normalizedPath) || status.staged.includes(relativePath);
 
                 if (hasChanges || isStaged)
@@ -584,18 +581,17 @@ export class GitService
                 return userValue.trim();
             }
 
-            // Fallback to email if name is not set
+            //email ako nema username
             const userEmail = await this.git.getConfig('user.email');
             const emailValue = typeof userEmail === 'string' ? userEmail : userEmail?.value;
 
             if (emailValue && emailValue.trim())
             {
-                // Extract username from email (part before @)
                 const emailUser = emailValue.trim().split('@')[0];
                 return emailUser;
             }
 
-            // Final fallback to machine ID
+            // samo da imamo nesto
             return vscode.env.machineId.substring(0, 8);
         } catch (error)
         {
@@ -604,7 +600,6 @@ export class GitService
         }
     }
 
-    // Cherry-pick functionality
     async getCommitsFromBranch(branchName: string, filePath?: string, maxCount: number = 20): Promise<CommitInfo[]>
     {
         try
@@ -1070,19 +1065,17 @@ export class GitService
                 status.not_added.includes(relativePath);
 
             // Also check if file appears in any of the status arrays (renamed, deleted, etc.)
-            const allFiles = [
-                ...status.modified,
-                ...status.not_added,
-                ...status.deleted,
-                ...status.created,
-                ...status.renamed.map((r: any) => r.to || r),
-                ...status.staged
-            ];
+            const allFiles = status.modified.concat(
+                status.not_added,
+                status.deleted,
+                status.created,
+                status.renamed.map((r: any) => r.to || r),
+                status.staged
+            );
 
             const hasAnyChanges = allFiles.some(file =>
                 file === normalizedPath ||
-                file === relativePath ||
-                (typeof file === 'object' && (file.path === normalizedPath || file.path === relativePath))
+                file === relativePath
             );
 
             return {

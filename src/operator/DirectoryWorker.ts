@@ -31,9 +31,9 @@ export class DirectoryWorker
 
     public async getChildren(element?: FileSystemObject): Promise<FileSystemObject[]>
     {
-        if (element && element.contextValue === this.sectionContextValue)
+        if (element && element.contextValue == this.sectionContextValue)
         {
-            const section = this.bookmarkSections.find(s => s.id === element.sectionId);
+            const section = this.bookmarkSections.find(s => s.id == element.sectionId);
             if (section)
             {
                 return this.createDirectoryEntries(section.directories, section.id);
@@ -52,15 +52,14 @@ export class DirectoryWorker
 
     public async addSection(name: string): Promise<void>
     {
-        const id = this.generateId();
-        const section = new BookmarkSection(id, name);
+        var section = new BookmarkSection(Math.random().toString(36).substr(2, 9), name);
         this.bookmarkSections.push(section);
         this.saveSections();
     }
 
     public async removeSection(sectionId: string): Promise<void> 
     {
-        const index = this.bookmarkSections.findIndex(s => s.id === sectionId);
+        const index = this.bookmarkSections.findIndex(s => s.id == sectionId);
         if (index > -1)
         {
             this.bookmarkSections.splice(index, 1);
@@ -68,103 +67,89 @@ export class DirectoryWorker
         }
     }
 
-    public async selectItem(uri: vscode.Uri | undefined, sectionId?: string): Promise<void>
+    public async selectItem(uri: vscode.Uri, sectionId?: string): Promise<void>
     {
-        if (uri)
+        const workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
+            ? this.workspaceRoot[0].uri.fsPath
+            : undefined;
+
+        if (workspaceRoot)
         {
-            const workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
-                ? this.workspaceRoot[0].uri.fsPath
-                : undefined;
-
-            if (workspaceRoot)
+            const relativePath = path.relative(workspaceRoot, uri.fsPath);
+            if (relativePath.startsWith('..')) 
             {
-                const relativePath = path.relative(workspaceRoot, uri.fsPath);
-                if (relativePath.startsWith('..')) 
-                {
-                    const result = await vscode.window.showWarningMessage(
-                        `The selected file is outside the current workspace and may not work properly with Git features.\n\nWorkspace: ${workspaceRoot}\nFile: ${uri.fsPath}\n\nDo you want to bookmark it anyway?`,
-                        'Yes, Bookmark It', 'Cancel'
-                    );
-
-                    if (result !== 'Yes, Bookmark It')
-                    {
-                        return;
-                    }
-                }
-            }
-
-            const currentUser = await this.getCurrentUser();
-            const typedDirectory = await buildTypedDirectory(uri, undefined, currentUser);
-
-            if (workspaceRoot && path.isAbsolute(typedDirectory.path))
-            {
-                const relativePath = path.relative(workspaceRoot, typedDirectory.path);
-                typedDirectory.path = relativePath;
-            }
-
-            let targetSectionId = sectionId;
-            if (!targetSectionId)
-            {
-                if (this.bookmarkSections.length === 0)
-                {
-                    const defaultSection = BookmarkSection.createDefault();
-                    this.bookmarkSections.push(defaultSection);
-                    targetSectionId = defaultSection.id;
-                }
-                else if (this.bookmarkSections.length === 1)
-                {
-                    targetSectionId = this.bookmarkSections[0].id;
-                }
-                else
-                {
-                    targetSectionId = await this.askUserForSection();
-                    if (!targetSectionId)
-                    {
-                        return;
-                    }
-                }
-            }
-
-            const section = this.bookmarkSections.find(s => s.id === targetSectionId);
-            if (section)
-            {
-                section.addDirectory(typedDirectory);
+                var result = await vscode.window.showWarningMessage(`You shouldn't bookmark workspace root`);
+                return;
             }
         }
+
+        const currentUser = await this.getCurrentUser();
+        const typedDirectory = await buildTypedDirectory(uri, undefined, currentUser);
+
+        if (workspaceRoot && path.isAbsolute(typedDirectory.path))
+        {
+            const relativePath = path.relative(workspaceRoot, typedDirectory.path);
+            typedDirectory.path = relativePath;
+        }
+
+        let targetSectionId = sectionId;
+        if (!targetSectionId)
+        {
+            if (this.bookmarkSections.length == 0)
+            {
+                const defaultSection = BookmarkSection.createDefault();
+                this.bookmarkSections.push(defaultSection);
+                targetSectionId = defaultSection.id;
+            }
+            else if (this.bookmarkSections.length == 1)
+            {
+                targetSectionId = this.bookmarkSections[0].id;
+            }
+            else
+            {
+                targetSectionId = await this.askUserForSection();
+                if (!targetSectionId)
+                {
+                    return;
+                }
+            }
+        }
+
+        const section = this.bookmarkSections.find(s => s.id == targetSectionId);
+        if (section)
+        {
+            section.addDirectory(typedDirectory);
+        }
+
         this.saveSections();
     }
 
-    public async removeItem(uri: vscode.Uri | undefined, sectionId?: string): Promise<void>
+    public async removeItem(uri: vscode.Uri, sectionId?: string): Promise<void>
     {
-        if (uri)
-        {
-            const workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
-                ? this.workspaceRoot[0].uri.fsPath
-                : undefined;
+        const workspaceRoot = this.workspaceRoot?.[0]?.uri.fsPath;
 
-            if (sectionId)
+        if (sectionId)
+        {
+            const section = this.bookmarkSections.find(s => s.id == sectionId);
+            if (section)
             {
-                const section = this.bookmarkSections.find(s => s.id === sectionId);
-                if (section)
+                let pathToRemove = uri.fsPath;
+                if (workspaceRoot && path.isAbsolute(pathToRemove))
                 {
-                    let pathToRemove = uri.fsPath;
-                    if (workspaceRoot && path.isAbsolute(pathToRemove))
-                    {
-                        pathToRemove = path.relative(workspaceRoot, pathToRemove);
-                    }
-                    section.removeDirectory(pathToRemove);
+                    pathToRemove = path.relative(workspaceRoot, pathToRemove);
                 }
-            } else
+                section.removeDirectory(pathToRemove);
+            }
+        } else
+        {
+            for (const section of this.bookmarkSections)
             {
-                for (const section of this.bookmarkSections)
+                let pathToRemove = uri.fsPath;
+                if (workspaceRoot && path.isAbsolute(pathToRemove))
                 {
-                    let pathToRemove = uri.fsPath;
-                    if (workspaceRoot && path.isAbsolute(pathToRemove))
-                    {
-                        pathToRemove = path.relative(workspaceRoot, pathToRemove);
-                    }
-                    section.removeDirectory(pathToRemove);
+                    pathToRemove = path.relative(workspaceRoot, pathToRemove);
                 }
+                section.removeDirectory(pathToRemove);
             }
         }
         this.saveSections();
@@ -206,7 +191,7 @@ export class DirectoryWorker
 
             for (const section of this.bookmarkSections)
             {
-                const bookmark = section.directories.find(d => d.path === uri.fsPath);
+                const bookmark = section.directories.find(d => d.path == uri.fsPath);
                 if (bookmark)
                 {
                     bookmark.updateAISummary(summary);
@@ -215,6 +200,7 @@ export class DirectoryWorker
                 }
             }
 
+            // vrv markdown najbolje, tbd
             const doc = await vscode.workspace.openTextDocument({
                 content: summary,
                 language: 'markdown'
@@ -226,6 +212,7 @@ export class DirectoryWorker
         });
     }
 
+    // nakon sto generises moras da prikazes
     public async viewAISummary(uri: vscode.Uri): Promise<void>
     {
         await vscode.window.withProgress({
@@ -244,68 +231,14 @@ export class DirectoryWorker
             }
 
             const filename = path.basename(uri.fsPath);
-            const panel = vscode.window.createWebviewPanel(
-                'aiSummary',
-                `AI Summary - ${filename}`,
-                vscode.ViewColumn.Beside,
-                {
-                    enableScripts: false,
-                    retainContextWhenHidden: true
-                }
-            );
-
-            const htmlContent = summary
-                .replace(/\n/g, '<br>')
-                .replace(/### (.*?)(<br>|$)/g, '<h3>$1</h3>')
-                .replace(/## (.*?)(<br>|$)/g, '<h2>$1</h2>')
-                .replace(/# (.*?)(<br>|$)/g, '<h1>$1</h1>')
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/`(.*?)`/g, '<code>$1</code>')
-                .replace(/^- (.*)(<br>|$)/gm, '<li>$1</li>')
-                .replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
-
-            panel.webview.html = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="UTF-8">
-                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <style>
-                            body { 
-                                font-family: var(--vscode-font-family); 
-                                color: var(--vscode-foreground);
-                                background-color: var(--vscode-editor-background);
-                                padding: 20px;
-                                line-height: 1.6;
-                                max-width: 800px;
-                            }
-                            h1, h2, h3, h4, h5, h6 { 
-                                color: var(--vscode-foreground);
-                                margin-top: 1.5em;
-                                margin-bottom: 0.5em;
-                            }
-                            h1 { font-size: 1.8em; border-bottom: 2px solid var(--vscode-foreground); }
-                            h2 { font-size: 1.5em; border-bottom: 1px solid var(--vscode-foreground); }
-                            h3 { font-size: 1.3em; }
-                            code { 
-                                background-color: var(--vscode-textCodeBlock-background);
-                                color: var(--vscode-textPreformat-foreground);
-                                padding: 2px 4px;
-                                border-radius: 3px;
-                                font-family: var(--vscode-editor-font-family);
-                            }
-                            ul { margin: 1em 0; padding-left: 2em; }
-                            li { margin: 0.5em 0; }
-                            strong { font-weight: bold; }
-                            em { font-style: italic; }
-                        </style>
-                    </head>
-                    <body>
-                        ${htmlContent}
-                    </body>
-                    </html>
-                `;
+            const doc = await vscode.workspace.openTextDocument({
+                content: summary,
+                language: 'markdown'
+            });
+            await vscode.window.showTextDocument(doc, {
+                viewColumn: vscode.ViewColumn.Beside,
+                preview: true
+            });
         });
     }
 
@@ -333,10 +266,7 @@ export class DirectoryWorker
 
     public async showGitDiff(uri: vscode.Uri): Promise<void>
     {
-        const workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
-            ? this.workspaceRoot[0].uri.fsPath
-            : undefined;
-
+        const workspaceRoot = this.workspaceRoot?.[0]?.uri.fsPath;
         if (!workspaceRoot)
         {
             vscode.window.showErrorMessage('No workspace detected. Git diff requires a workspace.');
@@ -395,10 +325,7 @@ export class DirectoryWorker
 
     public async cherryPickChanges(uri: vscode.Uri): Promise<void>
     {
-        const workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
-            ? this.workspaceRoot[0].uri.fsPath
-            : undefined;
-
+        const workspaceRoot = this.workspaceRoot?.[0]?.uri.fsPath;
         if (!workspaceRoot)
         {
             vscode.window.showErrorMessage('No workspace detected. Cherry-pick requires a workspace.');
@@ -427,7 +354,7 @@ export class DirectoryWorker
         // Filter out current branch
         const otherBranches = branchNames.filter(name => name !== currentBranch);
 
-        if (otherBranches.length === 0)
+        if (otherBranches.length == 0)
         {
             vscode.window.showInformationMessage('No other branches available for cherry-picking.');
             return;
@@ -466,10 +393,7 @@ export class DirectoryWorker
     // TODO: dodati batch staging?
     public async gitAddFile(uri: vscode.Uri): Promise<void>
     {
-        const workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
-            ? this.workspaceRoot[0].uri.fsPath
-            : undefined;
-
+        const workspaceRoot = this.workspaceRoot?.[0]?.uri.fsPath;
         if (!workspaceRoot)
         {
             vscode.window.showErrorMessage('No workspace detected. Git add requires a workspace.');
@@ -497,7 +421,7 @@ export class DirectoryWorker
                 'Unstage', 'Cancel'
             );
 
-            if (action === 'Unstage')
+            if (action == 'Unstage')
             {
                 await vscode.window.withProgress({
                     location: vscode.ProgressLocation.Notification,
@@ -542,10 +466,7 @@ export class DirectoryWorker
 
     public async gitCommitFile(uri: vscode.Uri): Promise<void>
     {
-        const workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
-            ? this.workspaceRoot[0].uri.fsPath
-            : undefined;
-
+        const workspaceRoot = this.workspaceRoot?.[0]?.uri.fsPath;
         if (!workspaceRoot)
         {
             vscode.window.showErrorMessage('No workspace detected. Git commit requires a workspace.');
@@ -576,7 +497,7 @@ export class DirectoryWorker
             placeHolder: 'feat: add new feature',
             validateInput: (value) =>
             {
-                if (!value || value.trim().length === 0)
+                if (!value || value.trim().length == 0)
                 {
                     return 'Commit message cannot be empty';
                 }
@@ -607,10 +528,7 @@ export class DirectoryWorker
 
     public async gitStashFile(uri: vscode.Uri): Promise<void>
     {
-        const workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
-            ? this.workspaceRoot[0].uri.fsPath
-            : undefined;
-
+        const workspaceRoot = this.workspaceRoot?.[0]?.uri.fsPath;
         if (!workspaceRoot)
         {
             vscode.window.showErrorMessage('No workspace detected. Git stash requires a workspace.');
@@ -675,10 +593,7 @@ export class DirectoryWorker
 
     public async gitPushBookmarkedFiles(): Promise<void>
     {
-        const workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
-            ? this.workspaceRoot[0].uri.fsPath
-            : undefined;
-
+        const workspaceRoot = this.workspaceRoot?.[0]?.uri.fsPath;
         if (!workspaceRoot)
         {
             vscode.window.showErrorMessage('No workspace detected. Git push requires a workspace.');
@@ -739,7 +654,7 @@ export class DirectoryWorker
         console.log('Files skipped:', skippedFiles.length);
 
         // TODO: mozda prikazati progress bar?
-        if (bookmarkedFiles.length === 0)
+        if (bookmarkedFiles.length == 0)
         {
             if (skippedFiles.length > 0)
             {
@@ -760,7 +675,7 @@ export class DirectoryWorker
             placeHolder: 'feat: update bookmarked files',
             validateInput: (value) =>
             {
-                if (!value || value.trim().length === 0)
+                if (!value || value.trim().length == 0)
                 {
                     return 'Commit message cannot be empty';
                 }
@@ -792,10 +707,7 @@ export class DirectoryWorker
 
     public async gitFetch(): Promise<void>
     {
-        const workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
-            ? this.workspaceRoot[0].uri.fsPath
-            : undefined;
-
+        const workspaceRoot = this.workspaceRoot?.[0]?.uri.fsPath;
         if (!workspaceRoot)
         {
             vscode.window.showErrorMessage('No workspace detected. Git fetch requires a workspace.');
@@ -826,10 +738,7 @@ export class DirectoryWorker
 
     public async gitPull(): Promise<void> 
     {
-        const workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
-            ? this.workspaceRoot[0].uri.fsPath
-            : undefined;
-
+        const workspaceRoot = this.workspaceRoot?.[0]?.uri.fsPath;
         if (!workspaceRoot)
         {
             vscode.window.showErrorMessage('No workspace detected. Git pull requires a workspace.');
@@ -884,10 +793,7 @@ export class DirectoryWorker
     // NOTE: treba da se vrati na ovo, mozda dodati interactive rebase?
     public async gitRebase(): Promise<void>
     {
-        const workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
-            ? this.workspaceRoot[0].uri.fsPath
-            : undefined;
-
+        const workspaceRoot = this.workspaceRoot?.[0]?.uri.fsPath;
         if (!workspaceRoot)
         {
             vscode.window.showErrorMessage('No workspace detected. Git rebase requires a workspace.');
@@ -900,7 +806,7 @@ export class DirectoryWorker
             .filter(b => !b.remote)
             .map(b => b.name);
 
-        if (branchNames.length === 0)
+        if (branchNames.length == 0)
         {
             vscode.window.showErrorMessage('No branches found.');
             return;
@@ -1019,7 +925,7 @@ export class DirectoryWorker
         });
     }
 
-    // FIXME: prompt mozda predugo, skratiti
+    // todo uros: prompt mozda predug, skratiti
     private async generateAIDiffSummary(diffContent: string, filePath: string, remoteBranch: string): Promise<void>
     {
         await vscode.window.withProgress({
@@ -1028,7 +934,9 @@ export class DirectoryWorker
             cancellable: false
         }, async () =>
         {
-            const prompt = `Analyze this git diff and provide a clear, concise summary of the changes:
+            const prompt =
+
+                `Analyze this git diff and provide a clear, concise summary of the changes:
 
 File: ${filePath}
 Comparing: local vs ${remoteBranch}
@@ -1046,90 +954,23 @@ Keep the summary focused and easy to understand.`;
 
             const summary = await AIService.generateCustomSummary(prompt);
 
-            const panel = vscode.window.createWebviewPanel(
-                'gitDiffSummary',
-                `Git Diff Summary - ${path.basename(filePath)}`,
-                vscode.ViewColumn.Beside,
-                {
-                    enableScripts: false,
-                    retainContextWhenHidden: true
-                }
-            );
+            const content = `# Git Diff Summary
 
-            // Simple HTML rendering of the summary
-            const htmlContent = summary
-                .replace(/\n/g, '<br>')
-                .replace(/### (.*?)(<br>|$)/g, '<h3>$1</h3>')
-                .replace(/## (.*?)(<br>|$)/g, '<h2>$1</h2>')
-                .replace(/# (.*?)(<br>|$)/g, '<h1>$1</h1>')
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/`(.*?)`/g, '<code>$1</code>')
-                .replace(/^- (.*)(<br>|$)/gm, '<li>$1</li>')
-                .replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
+**File:** ${filePath}  
+**Comparison:** local vs ${remoteBranch}
 
-            panel.webview.html = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="UTF-8">
-                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <style>
-                            body { 
-                                font-family: var(--vscode-font-family); 
-                                color: var(--vscode-foreground);
-                                background-color: var(--vscode-editor-background);
-                                padding: 20px;
-                                line-height: 1.6;
-                                max-width: 800px;
-                            }
-                            .header {
-                                border-bottom: 2px solid var(--vscode-foreground);
-                                padding-bottom: 10px;
-                                margin-bottom: 20px;
-                            }
-                            .file-info {
-                                background-color: var(--vscode-textCodeBlock-background);
-                                padding: 10px;
-                                border-radius: 5px;
-                                margin-bottom: 20px;
-                                font-family: var(--vscode-editor-font-family);
-                            }
-                            h1, h2, h3, h4, h5, h6 { 
-                                color: var(--vscode-foreground);
-                                margin-top: 1.5em;
-                                margin-bottom: 0.5em;
-                            }
-                            h1 { font-size: 1.8em; }
-                            h2 { font-size: 1.5em; }
-                            h3 { font-size: 1.3em; }
-                            code { 
-                                background-color: var(--vscode-textCodeBlock-background);
-                                color: var(--vscode-textPreformat-foreground);
-                                padding: 2px 4px;
-                                border-radius: 3px;
-                                font-family: var(--vscode-editor-font-family);
-                            }
-                            ul { margin: 1em 0; padding-left: 2em; }
-                            li { margin: 0.5em 0; }
-                            strong { font-weight: bold; }
-                            em { font-style: italic; }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="header">
-                            <h1>Git Diff Summary</h1>
-                        </div>
-                        <div class="file-info">
-                            <strong>File:</strong> ${filePath}<br>
-                            <strong>Comparison:</strong> local vs ${remoteBranch}
-                        </div>
-                        <div class="content">
-                            ${htmlContent}
-                        </div>
-                    </body>
-                    </html>
-                `;
+---
+
+${summary}`;
+
+            const doc = await vscode.workspace.openTextDocument({
+                content: content,
+                language: 'markdown'
+            });
+            await vscode.window.showTextDocument(doc, {
+                viewColumn: vscode.ViewColumn.Beside,
+                preview: true
+            });
         });
     }
 
@@ -1152,25 +993,16 @@ Keep the summary focused and easy to understand.`;
 
         if (importedSections)
         {
-            // Ask user how to handle the import
             const action = await vscode.window.showInformationMessage(
-                `Found ${importedSections.length} bookmark sections to import`,
-                'Replace Current', 'Merge with Current', 'Cancel'
+                `Found ${importedSections.length} bookmark sections to import. This will replace your current bookmarks.`,
+                'Replace Current', 'Cancel'
             );
 
-            switch (action)
+            if (action == 'Replace Current')
             {
-                case 'Replace Current':
-                    this.bookmarkSections = importedSections;
-                    break;
-                case 'Merge with Current':
-                    this.bookmarkSections = this.mergeBookmarkSections(this.bookmarkSections, importedSections);
-                    break;
-                default:
-                    return;
+                this.bookmarkSections = importedSections;
+                this.saveSections();
             }
-
-            this.saveSections();
         }
     }
 
@@ -1261,26 +1093,17 @@ Keep the summary focused and easy to understand.`;
             });
         }
 
-        // Ask user how to handle the injection
         const action = await vscode.window.showInformationMessage(
-            `Found ${sectionsToInject.length} bookmark sections to inject`,
-            'Replace Current', 'Merge with Current', 'Cancel'
+            `Found ${sectionsToInject.length} bookmark sections to inject. This will replace your current bookmarks.`,
+            'Replace Current', 'Cancel'
         );
 
-        switch (action)
+        if (action == 'Replace Current')
         {
-            case 'Replace Current':
-                this.bookmarkSections = sectionsToInject;
-                break;
-            case 'Merge with Current':
-                this.bookmarkSections = this.mergeBookmarkSections(this.bookmarkSections, sectionsToInject);
-                break;
-            default:
-                return;
+            this.bookmarkSections = sectionsToInject;
+            this.saveSections();
+            vscode.window.showInformationMessage(`Successfully injected ${sectionsToInject.length} bookmark sections!`);
         }
-
-        this.saveSections();
-        vscode.window.showInformationMessage(`Successfully injected ${sectionsToInject.length} bookmark sections!`);
     }
 
     public async generateShareableConfig(): Promise<void>
@@ -1322,40 +1145,12 @@ Keep the summary focused and easy to understand.`;
             'Copy to Clipboard'
         ).then(action =>
         {
-            if (action === 'Copy to Clipboard')
+            if (action == 'Copy to Clipboard')
             {
                 vscode.env.clipboard.writeText(configJson);
                 vscode.window.showInformationMessage('Configuration copied to clipboard!');
             }
         });
-    }
-
-    private mergeBookmarkSections(local: BookmarkSection[], imported: BookmarkSection[]): BookmarkSection[]
-    {
-        const merged = [...local];
-
-        for (const importedSection of imported)
-        {
-            const existingSection = merged.find(s => s.id === importedSection.id || s.name === importedSection.name);
-
-            if (existingSection)
-            {
-                // Merge directories, avoiding duplicates
-                for (const importedDir of importedSection.directories)
-                {
-                    const exists = existingSection.directories.some(d => d.path === importedDir.path);
-                    if (!exists)
-                    {
-                        existingSection.directories.push(importedDir);
-                    }
-                }
-            } else
-            {
-                merged.push(importedSection);
-            }
-        }
-
-        return merged;
     }
 
     private async directorySearch(uri: vscode.Uri): Promise<FileSystemObject[]>
@@ -1367,7 +1162,7 @@ Keep the summary focused and easy to understand.`;
             {
                 const [name, type] = item;
                 const isDirectory =
-                    type === vscode.FileType.Directory
+                    type == vscode.FileType.Directory
                         ? vscode.TreeItemCollapsibleState.Collapsed
                         : vscode.TreeItemCollapsibleState.None;
 
@@ -1394,7 +1189,7 @@ Keep the summary focused and easy to understand.`;
         });
     }
 
-    // TODO refactor - promeniti nacin na koji se cuvaju pathovi
+    // TODO refactor promeniti nacin na koji se cuvaju pathovi
     private createDirectoryEntries(directories: TypedDirectory[], sectionId: string): FileSystemObject[]
     {
         const workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
@@ -1433,7 +1228,7 @@ Keep the summary focused and easy to understand.`;
 
             const item = new FileSystemObject(
                 label,
-                dir.type === vscode.FileType.File
+                dir.type == vscode.FileType.File
                     ? vscode.TreeItemCollapsibleState.None
                     : vscode.TreeItemCollapsibleState.Collapsed,
                 file,
@@ -1467,14 +1262,14 @@ Keep the summary focused and easy to understand.`;
             }
 
             // Priority indicators
-            if (dir.priority === 'critical') visualIndicators += '🔥 ';
-            else if (dir.priority === 'high') visualIndicators += '⚡ ';
-            else if (dir.priority === 'low') visualIndicators += '⬇️ ';
+            if (dir.priority == 'critical') visualIndicators += '🔥 ';
+            else if (dir.priority == 'high') visualIndicators += '⚡ ';
+            else if (dir.priority == 'low') visualIndicators += '⬇️ ';
 
             // status ikone
-            if (dir.status === 'in-review') visualIndicators += '👀 ';
-            else if (dir.status === 'completed') visualIndicators += '✅ ';
-            else if (dir.status === 'archived') visualIndicators += '📦 ';
+            if (dir.status == 'in-review') visualIndicators += '👀 ';
+            else if (dir.status == 'completed') visualIndicators += '✅ ';
+            else if (dir.status == 'archived') visualIndicators += '📦 ';
 
             // ostale stvari koje treba da se vide
             if (dir.aiSummary) visualIndicators += '🤖 ';
@@ -1483,7 +1278,7 @@ Keep the summary focused and easy to understand.`;
 
             // git statusi
             if (dir.gitInfo?.hasLocalChanges) visualIndicators += '🔄 ';
-            if (dir.gitInfo?.conflictStatus === 'conflicts') visualIndicators += '⚠️ ';
+            if (dir.gitInfo?.conflictStatus == 'conflicts') visualIndicators += '⚠️ ';
 
             // Update labelu - prvo tags pa indikatori pa ime fajla
             const enhancedLabel = tagDisplay + visualIndicators + displayLabel;
@@ -1539,7 +1334,7 @@ Keep the summary focused and easy to understand.`;
             {
                 tooltip += `\n🌿 Git: ${dir.gitInfo.currentBranch || 'unknown'}`;
                 if (dir.gitInfo.hasLocalChanges) tooltip += ' (modified)';
-                if (dir.gitInfo.conflictStatus === 'conflicts') tooltip += ' ⚠️ Conflicts';
+                if (dir.gitInfo.conflictStatus == 'conflicts') tooltip += ' ⚠️ Conflicts';
             }
 
             item.tooltip = tooltip;
@@ -1566,6 +1361,7 @@ Keep the summary focused and easy to understand.`;
             ? this.extensionContext.workspaceState.get(this.storedSectionsContextKey)
             : this.extensionContext.globalState.get(this.storedSectionsContextKey);
 
+        //sekcijeee
         if (storedSections && Array.isArray(storedSections))
         {
             const workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
@@ -1574,7 +1370,8 @@ Keep the summary focused and easy to understand.`;
 
             this.bookmarkSections = storedSections.map((s: any) =>
             {
-                const directories = (s.directories || []).map((d: any) =>
+                var dirs = s.directories || [];
+                const directories = dirs.map((d: any) =>
                 {
                     let bookmarkPath = d.path;
                     if (workspaceRoot && path.isAbsolute(bookmarkPath))
@@ -1637,7 +1434,7 @@ Keep the summary focused and easy to understand.`;
         }
 
         // mora barem jedna sekcija da postoji
-        if (this.bookmarkSections.length === 0)
+        if (this.bookmarkSections.length == 0)
         {
             this.bookmarkSections.push(BookmarkSection.createDefault());
         }
@@ -1656,17 +1453,10 @@ Keep the summary focused and easy to understand.`;
             );
     }
 
-    private generateId(): string
-    {
-        return Math.random().toString(36).substr(2, 9);
-    }
-
-    // FIXME: ovo se poziva previse puta, optimizovati
+    // todo uros: ovo se poziva previse puta, optimizovati
     private findBookmarkByUri(uri: vscode.Uri): { section: BookmarkSection, bookmark: TypedDirectory } | null 
     {
-        var workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
-            ? this.workspaceRoot[0].uri.fsPath
-            : undefined;
+        const workspaceRoot = this.workspaceRoot?.[0]?.uri.fsPath;
 
         for (const section of this.bookmarkSections)
         {
@@ -1675,9 +1465,9 @@ Keep the summary focused and easy to understand.`;
                 if (workspaceRoot && !path.isAbsolute(d.path))
                 {
                     const absolutePath = path.join(workspaceRoot, d.path);
-                    return absolutePath === uri.fsPath;
+                    return absolutePath == uri.fsPath;
                 }
-                return d.path === uri.fsPath;
+                return d.path == uri.fsPath;
             });
 
             if (bookmark)
@@ -1691,9 +1481,7 @@ Keep the summary focused and easy to understand.`;
 
     private findParentBookmarkByUri(uri: vscode.Uri): { section: BookmarkSection, bookmark: TypedDirectory } | null
     {
-        const workspaceRoot = this.workspaceRoot && this.workspaceRoot.length > 0
-            ? this.workspaceRoot[0].uri.fsPath
-            : undefined;
+        const workspaceRoot = this.workspaceRoot?.[0]?.uri.fsPath;
 
         for (const section of this.bookmarkSections)
         {
@@ -1738,9 +1526,10 @@ Keep the summary focused and easy to understand.`;
     {
         try
         {
-            if (this.workspaceRoot && this.workspaceRoot.length > 0)
+            const wsRoot = this.workspaceRoot?.[0]?.uri.fsPath;
+            if (wsRoot)
             {
-                const gitService = new GitService(this.workspaceRoot[0].uri.fsPath);
+                const gitService = new GitService(wsRoot);
                 return await gitService.getCurrentGitUser();
             }
         } catch (error)
@@ -1748,7 +1537,6 @@ Keep the summary focused and easy to understand.`;
             console.error('Error getting git user:', error);
         }
 
-        // Fallback to shortened machine ID if git not available
         return vscode.env.machineId.substring(0, 8);
     }
 
@@ -1804,8 +1592,7 @@ Keep the summary focused and easy to understand.`;
 
         if (!targetBranch) return;
 
-        // Here you would typically use GitHub API to create the PR
-        // For now, just open the GitHub PR creation page
+        //samo otvori stranicu za kreiranje PR-a
         const repoUrl = await this.getRepositoryUrl();
         if (repoUrl)
         {
@@ -1887,6 +1674,7 @@ Keep the summary focused and easy to understand.`;
                             );
                             if (defaultBranch)
                             {
+                                // master vs main ahahahah
                                 branch = defaultBranch.includes('master') ? 'master' : 'main';
                             }
                         }
@@ -1923,7 +1711,7 @@ Keep the summary focused and easy to understand.`;
 
         const git = simpleGit(workspaceFolder.uri.fsPath);
         const remotes = await git.getRemotes(true);
-        const origin = remotes.find((r: any) => r.name === 'origin');
+        const origin = remotes.find((r: any) => r.name == 'origin');
 
         if (origin && origin.refs.fetch)
         {
@@ -1996,7 +1784,7 @@ Keep the summary focused and easy to understand.`;
             return;
         }
 
-        if (!diff || diff.trim() === '')
+        if (!diff || diff.trim() == '')
         {
             vscode.window.showInformationMessage('No uncommitted changes found for this file.');
             return;
@@ -2010,7 +1798,7 @@ Keep the summary focused and easy to understand.`;
         const remoteBranch = `origin/${currentBranch}`;
         const diff = await gitService.compareWithRemote(currentBranch, remoteBranch, absolutePath);
 
-        if (!diff || diff.trim() === '')
+        if (!diff || diff.trim() == '')
         {
             vscode.window.showInformationMessage('No differences found between local and remote for this file.');
             return;
@@ -2044,7 +1832,7 @@ Keep the summary focused and easy to understand.`;
 
         const diff = await gitService.compareBranches(branch1, branch2, absolutePath);
 
-        if (!diff || diff.trim() === '')
+        if (!diff || diff.trim() == '')
         {
             vscode.window.showInformationMessage(`No differences found between ${branch1} and ${branch2} for this file.`);
             return;
@@ -2057,7 +1845,7 @@ Keep the summary focused and easy to understand.`;
     {
         const history = await gitService.getFileHistory(absolutePath, 10);
 
-        if (history.commits.length === 0)
+        if (history.commits.length == 0)
         {
             vscode.window.showInformationMessage('No commit history found for this file.');
             return;
@@ -2076,10 +1864,9 @@ Keep the summary focused and easy to understand.`;
 
         if (!selectedCommit) return;
 
-        // Use GitService for consistent path handling
         const diff = await gitService.getFileChanges(absolutePath, selectedCommit.commit.hash, 'HEAD');
 
-        if (!diff || diff.trim() === '')
+        if (!diff || diff.trim() == '')
         {
             vscode.window.showInformationMessage('No differences found with the selected commit.');
             return;
@@ -2137,7 +1924,7 @@ Keep the summary focused and easy to understand.`;
             let compareRef = 'HEAD';
             let compareLabel = 'HEAD';
 
-            if (diffType === 'remote' && remoteBranch)
+            if (diffType == 'remote' && remoteBranch)
             {
                 compareRef = remoteBranch;
                 compareLabel = remoteBranch;
@@ -2212,7 +1999,7 @@ Keep the summary focused and easy to understand.`;
     {
         const commits = await gitService.getCommitsFromBranch(sourceBranch, absolutePath, 20);
 
-        if (commits.length === 0)
+        if (commits.length == 0)
         {
             vscode.window.showInformationMessage(`No commits found for this file in branch '${sourceBranch}'.`);
             return;
@@ -2230,10 +2017,10 @@ Keep the summary focused and easy to understand.`;
             canPickMany: true
         });
 
-        if (!selectedCommits || selectedCommits.length === 0) return;
+        if (!selectedCommits || selectedCommits.length == 0) return;
 
         const commitMessages = selectedCommits.map(item =>
-            `• ${item.commit.hash.substring(0, 8)}: ${item.commit.message.split('\n')[0]}`
+            `${item.commit.hash.substring(0, 8)}: ${item.commit.message.split('\n')[0]}`
         ).join('\n');
 
         const confirmation = await vscode.window.showWarningMessage(
@@ -2269,7 +2056,7 @@ Keep the summary focused and easy to understand.`;
 
             const resultMessage = `Cherry-pick completed!\n\n✅ Success: ${successCount}\n❌ Failed: ${failureCount}\n\nDetails:\n${results.join('\n')}`;
 
-            if (failureCount === 0)
+            if (failureCount == 0)
             {
                 vscode.window.showInformationMessage('All cherry-picks completed successfully!')
                     .then(() => this.showDetailedResults(resultMessage));
@@ -2287,7 +2074,7 @@ Keep the summary focused and easy to understand.`;
     {
         const commits = await gitService.getCommitsFromBranch(sourceBranch, undefined, 20);
 
-        if (commits.length === 0)
+        if (commits.length == 0)
         {
             vscode.window.showInformationMessage(`No commits found in branch '${sourceBranch}'.`);
             return;
@@ -2317,7 +2104,7 @@ Keep the summary focused and easy to understand.`;
 
         if (!cherryPickType) return;
 
-        if (cherryPickType.option === 'individual')
+        if (cherryPickType.option == 'individual')
         {
             await this.handleIndividualCommitCherryPick(gitService, commitItems);
         }
@@ -2334,7 +2121,7 @@ Keep the summary focused and easy to understand.`;
             canPickMany: true
         });
 
-        if (!selectedCommits || selectedCommits.length === 0) return;
+        if (!selectedCommits || selectedCommits.length == 0) return;
 
         const commitMessages = selectedCommits.map(item =>
             `• ${item.commit.hash.substring(0, 8)}: ${item.commit.message.split('\n')[0]}`
@@ -2373,13 +2160,13 @@ Keep the summary focused and easy to understand.`;
                         'Abort Cherry-pick', 'Continue Manually', 'Skip This Commit'
                     );
 
-                    if (action === 'Abort Cherry-pick')
+                    if (action == 'Abort Cherry-pick')
                     {
                         await gitService.abortCherryPick();
                         results.push('✗ Cherry-pick aborted by user');
                         break;
                     }
-                    else if (action === 'Continue Manually')
+                    else if (action == 'Continue Manually')
                     {
                         vscode.window.showInformationMessage('Please resolve conflicts manually, then run "git cherry-pick --continue"');
                         break;

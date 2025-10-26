@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 
-// AI analiza fajlova pomocu Copilot-a
+// AI analiza fajlova pomocu Copilota
 export class AIService
 {
     private static readonly MAX_FILE_SIZE = 100000;
@@ -14,31 +14,23 @@ export class AIService
 
     public static async generateFileSummary(uri: vscode.Uri): Promise<string>
     {
-        try
+        const ext = path.extname(uri.fsPath).toLowerCase();
+        if (!this.SUPPORTED_EXTENSIONS.includes(ext))
         {
-            const ext = path.extname(uri.fsPath).toLowerCase();
-            if (!this.SUPPORTED_EXTENSIONS.includes(ext))
-            {
-                return "File type not supported for AI analysis.";
-            }
-
-            const stat = await vscode.workspace.fs.stat(uri);
-            if (stat.size > this.MAX_FILE_SIZE)
-            {
-                return "File too large for AI analysis (>100KB).";
-            }
-
-            // citaj fajl
-            const content = await vscode.workspace.fs.readFile(uri);
-            const textContent = Buffer.from(content).toString('utf8');
-
-            return await this.generateCopilotSummary(textContent, path.basename(uri.fsPath), ext);
+            return "File type not supported for AI analysis.";
         }
-        catch (error)
+
+        const stat = await vscode.workspace.fs.stat(uri);
+        if (stat.size > this.MAX_FILE_SIZE)
         {
-            console.error('Error generating AI summary:', error);
-            return "Error generating summary. File may not be accessible or GitHub Copilot may be unavailable.";
+            return "File too large for AI analysis (>100KB).";
         }
+
+        // citaj fajl
+        const content = await vscode.workspace.fs.readFile(uri);
+        const textContent = Buffer.from(content).toString('utf8');
+
+        return await this.generateCopilotSummary(textContent, path.basename(uri.fsPath), ext);
     }
 
     public static async generateCustomSummary(prompt: string): Promise<string>
@@ -65,16 +57,16 @@ export class AIService
             if (copilotResponse)
             {
                 return this.formatCopilotResponse(copilotResponse, filename);
-            }
-            else
+            } else
             {
-                return await this.generateInteractiveSummary(content, filename, extension, prompt);
+                return "GitHub Copilot is required for AI summaries. Please ensure GitHub Copilot works";
             }
+
         }
         catch (error)
         {
             console.error('Error invoking GitHub Copilot:', error);
-            return "GitHub Copilot is required for AI summaries. Please ensure GitHub Copilot is installed, active, and you are signed in.";
+            return "GitHub Copilot is required for AI summaries. Please ensure GitHub Copilot works";
         }
     }
 
@@ -82,7 +74,6 @@ export class AIService
     {
         try
         {
-            // use VS Code's GitHub Copilot API to get the summary
             const copilotResponse = await this.invokeCopilotAPI(prompt);
 
             if (copilotResponse)
@@ -90,63 +81,12 @@ export class AIService
                 return this.formatCopilotResponse(copilotResponse, 'Git Diff Analysis');
             } else
             {
-                return "GitHub Copilot is required for diff analysis. Please ensure GitHub Copilot is installed, active, and you are signed in.";
+                return "GitHub Copilot is required for diff analysis. Please ensure GitHub Copilot works";
             }
         } catch (error)
         {
             console.error('Error invoking GitHub Copilot for custom prompt:', error);
-            return "GitHub Copilot is required for diff analysis. Please ensure GitHub Copilot is installed, active, and you are signed in.";
-        }
-    }
-
-    private static async generateInteractiveSummary(content: string, filename: string, extension: string, prompt: string): Promise<string>
-    {
-        try
-        {
-            // Create a temporary document with the analysis prompt
-            const promptDoc = await vscode.workspace.openTextDocument({
-                content: prompt,
-                language: 'markdown'
-            });
-
-            // Show the document
-            const editor = await vscode.window.showTextDocument(promptDoc);
-
-            // Try to open Copilot Chat
-            try
-            {
-                await vscode.commands.executeCommand('github.copilot.interactiveEditor.explain');
-            } catch
-            {
-                try
-                {
-                    await vscode.commands.executeCommand('workbench.panel.chat.view.copilot.focus');
-                } catch
-                {
-                    vscode.window.showInformationMessage(
-                        'Please use the Copilot Chat panel to analyze the file. The prompt has been opened in a new document.'
-                    );
-                }
-            }
-
-            // Return instructions for the user
-            return `# 🤖 AI Summary for ${filename}
-
-*To generate a comprehensive AI summary:*
-
-1. **Copy the analysis prompt** from the document that was just opened
-2. **Open GitHub Copilot Chat** (Ctrl+Shift+P → "GitHub Copilot: Focus on Copilot Chat")
-3. **Paste and send** the prompt to get an intelligent analysis
-4. **Copy the response** back here if you want to save it with the bookmark
-
----
-
-*Please follow the steps above to use GitHub Copilot Chat for AI-powered analysis.*`;
-
-        } catch (error)
-        {
-            console.error('Error creating interactive session:', error);
-            return "GitHub Copilot is required for AI summaries. Please ensure GitHub Copilot is installed, active, and you are signed in.";
+            return "GitHub Copilot is required for diff analysis. Please ensure GitHub Copilot works";
         }
     }
 
@@ -172,6 +112,7 @@ Please provide:
 Format the response in markdown with clear sections and bullet points.`;
     }
 
+    // Ova metoda glavna!!
     private static async invokeCopilotAPI(prompt: string): Promise<string | null>
     {
         try
@@ -299,9 +240,8 @@ Format the response in markdown with clear sections and bullet points.`;
 
     private static formatCopilotResponse(response: string, filename: string): string
     {
-        const header = `# 🤖 AI Summary for ${filename}\n\n*Generated by GitHub Copilot*\n\n---\n\n`;
         const footer = `\n\n---\n\n*Summary generated on ${new Date().toLocaleString()}*`;
 
-        return header + response + footer;
+        return response + footer;
     }
 }

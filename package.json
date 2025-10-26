@@ -193,11 +193,6 @@
         "icon": "$(github)"
       },
       {
-        "command": "directoryprovider/setupgithub",
-        "title": "Setup GitHub Integration",
-        "icon": "$(key)"
-      },
-      {
         "command": "directoryprovider/gitoperations",
         "title": "Git Operations",
         "icon": "$(git-branch)"
@@ -239,11 +234,6 @@
           "command": "directoryprovider/injectteambookmarks",
           "when": "view == explorer-bookmark",
           "group": "navigation"
-        },
-        {
-          "command": "directoryprovider/setupgithub",
-          "when": "view == explorer-bookmark",
-          "group": "github"
         },
         {
           "command": "directoryprovider/gitoperations",

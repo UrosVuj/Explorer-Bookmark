@@ -26,7 +26,6 @@ export enum DirectoryProviderCommands
     CreatePR = 'directoryprovider/createpr',
     LinkPR = 'directoryprovider/linkpr',
     ShowGitHub = 'directoryprovider/showgithub',
-    SetupGitHub = 'directoryprovider/setupgithub',
     CherryPickChanges = 'directoryprovider/cherrypickchanges',
     GitAddFile = 'directoryprovider/gitaddfile',
     GitCommitFile = 'directoryprovider/gitcommitfile',
