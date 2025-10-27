@@ -1673,6 +1673,7 @@ ${summary}`;
                 else
                 {
                     vscode.env.openExternal(vscode.Uri.parse(repoUrl));
+
                 }
             }
             else
@@ -1731,6 +1732,7 @@ ${summary}`;
 
         try
         {
+
             switch (option)
             {
                 case 'working':
@@ -1771,6 +1773,7 @@ ${summary}`;
 
         await this.presentDiffOptions(diff, path.basename(absolutePath), 'Working Directory vs HEAD', absolutePath, 'working');
     }
+
 
     private async showRemoteDiff(gitService: GitService, absolutePath: string, currentBranch: string): Promise<void>
     {
