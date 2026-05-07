@@ -3,6 +3,7 @@ import * as path from "path";
 import { FileSystemObject } from "../types/FileSystemObject";
 import { TypedDirectory } from "../types/TypedDirectory";
 import { buildTypedDirectory } from "../types/TypedDirectory";
+import { extractCommandTargetPath, isUriString } from "./CommandTarget";
 
 export class DirectoryWorker
 {
@@ -39,7 +40,14 @@ export class DirectoryWorker
     {
         if (uri)
         {
-            this.bookmarkedDirectories.push(await buildTypedDirectory(uri));
+            const typedDirectory = await buildTypedDirectory(uri);
+            const alreadyBookmarked = this.bookmarkedDirectories
+                .some((directory) => directory.path === typedDirectory.path);
+
+            if (!alreadyBookmarked)
+            {
+                this.bookmarkedDirectories.push(typedDirectory);
+            }
         }
         this.saveBookmarks();
     }
@@ -48,10 +56,10 @@ export class DirectoryWorker
     {
         if (uri)
         {
-            const typedDirectory = await buildTypedDirectory(uri)
+            const typedDirectory = await buildTypedDirectory(uri);
             const index =
                 this.bookmarkedDirectories.map(e => e.path)
-                    .indexOf(typedDirectory.path)
+                    .indexOf(typedDirectory.path);
             if (index > -1)
             {
                 this.bookmarkedDirectories.splice(index, 1);
@@ -64,6 +72,48 @@ export class DirectoryWorker
     {
         this.bookmarkedDirectories = [];
         this.saveBookmarks();
+    }
+
+    public resolveUri(value: unknown): vscode.Uri | undefined
+    {
+        if (!value)
+        {
+            return undefined;
+        }
+
+        if (value instanceof vscode.Uri)
+        {
+            return value;
+        }
+
+        if (typeof value === "object")
+        {
+            const candidate = value as {
+                resourceUri?: vscode.Uri;
+                uri?: vscode.Uri;
+            };
+
+            if (candidate.resourceUri instanceof vscode.Uri)
+            {
+                return candidate.resourceUri;
+            }
+
+            if (candidate.uri instanceof vscode.Uri)
+            {
+                return candidate.uri;
+            }
+        }
+
+        const pathOrUri = extractCommandTargetPath(value);
+
+        if (typeof pathOrUri === "string")
+        {
+            return isUriString(pathOrUri)
+                ? vscode.Uri.parse(pathOrUri)
+                : vscode.Uri.file(pathOrUri);
+        }
+
+        return undefined;
     }
 
     private async directorySearch(uri: vscode.Uri)
@@ -82,7 +132,7 @@ export class DirectoryWorker
                 return new FileSystemObject(
                     name,
                     isDirectory,
-                    vscode.Uri.file(`${uri.path}/${name}`)
+                    vscode.Uri.joinPath(uri, name)
                 );
             });
     }
@@ -98,7 +148,7 @@ export class DirectoryWorker
 
             fileSystem.push(
                 new FileSystemObject(
-                    `${path.basename(dir.path)}`,
+                    `${path.basename(filePath)}`,
                     type === vscode.FileType.File
                         ? vscode.TreeItemCollapsibleState.None
                         : vscode.TreeItemCollapsibleState.Collapsed,
@@ -113,7 +163,7 @@ export class DirectoryWorker
     private hydrateState(): void
     {
         this.saveWorkspaceSetting = vscode.workspace
-            .getConfiguration(this.saveWorkspaceConfigurationSettingKey)
+            .getConfiguration(this.vsCodeExtensionConfigurationKey)
             .get(this.saveWorkspaceConfigurationSettingKey);
         this.bookmarkedDirectories =
             (this.workspaceRoot
@@ -123,6 +173,19 @@ export class DirectoryWorker
 
     private saveBookmarks()
     {
+        if (!this.saveWorkspaceSetting)
+        {
+            void this.extensionContext.workspaceState.update(
+                this.storedBookmarksContextKey,
+                undefined
+            );
+            void this.extensionContext.globalState.update(
+                this.storedBookmarksContextKey,
+                undefined
+            );
+            return;
+        }
+
         this.workspaceRoot
             ? this.extensionContext.workspaceState.update(
                 this.storedBookmarksContextKey,

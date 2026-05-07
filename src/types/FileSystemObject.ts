@@ -19,7 +19,7 @@ export class FileSystemObject extends vscode.TreeItem
       collapsibleState === vscode.TreeItemCollapsibleState.None
         ? {
           arguments: [this],
-          command: DirectoryProviderCommands.OpenItem,
+          command: DirectoryProviderCommands.openItem,
           title: this.label,
         }
         : undefined;

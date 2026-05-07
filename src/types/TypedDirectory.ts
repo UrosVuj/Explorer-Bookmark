@@ -18,6 +18,5 @@ export class TypedDirectory
 export async function buildTypedDirectory(uri: vscode.Uri)
 {
   const type = (await vscode.workspace.fs.stat(uri)).type;
-  return new TypedDirectory(uri.path, type);
+  return new TypedDirectory(uri.fsPath, type);
 }
-

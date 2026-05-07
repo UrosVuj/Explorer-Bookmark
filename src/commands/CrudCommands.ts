@@ -1,14 +1,14 @@
-export enum vsCodeCommands
+export enum VsCodeCommands
 {
-    Open = 'vscode.open',
-};
+    open = "vscode.open",
+}
 
 export enum DirectoryProviderCommands
 {
-    SelectItem = 'directoryprovider/selectitem',
-    OpenItem = 'directoryprovider/openitem',
-    RefreshEntry = 'directoryprovider/refreshentry',
-    CantRemoveItem = 'directoryprovider/cantremoveitem',
-    RemoveItem = 'directoryprovider/removeitem',
-    RemoveAllItems = 'directoryprovider/removeallitems',
-};
+    selectItem = "directoryprovider/selectitem",
+    openItem = "directoryprovider/openitem",
+    refreshEntry = "directoryprovider/refreshentry",
+    cantRemoveItem = "directoryprovider/cantremoveitem",
+    removeItem = "directoryprovider/removeitem",
+    removeAllItems = "directoryprovider/removeallitems",
+}

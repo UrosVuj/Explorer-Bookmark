@@ -2,52 +2,74 @@ import * as vscode from "vscode";
 import { DirectoryProvider } from "./provider/DirectoryProvider";
 import { DirectoryWorker } from "./operator/DirectoryWorker";
 import { DirectoryProviderCommands } from "./commands/CrudCommands";
-import { vsCodeCommands } from "./commands/CrudCommands";
+import { VsCodeCommands } from "./commands/CrudCommands";
 
-export function activate(context: vscode.ExtensionContext)
+export interface ExplorerBookmarkApi
+{
+  directoryOperator: DirectoryWorker;
+  directoryProvider: DirectoryProvider;
+}
+
+export function createExplorerBookmarkApi(
+  context: vscode.ExtensionContext,
+  workspaceFolders: readonly vscode.WorkspaceFolder[] | undefined
+): ExplorerBookmarkApi
 {
   const directoryOperator = new DirectoryWorker(
     context,
-    vscode.workspace.workspaceFolders
+    workspaceFolders
   );
 
   const directoryProvider = new DirectoryProvider(
     directoryOperator
   );
 
+  return {
+    directoryOperator,
+    directoryProvider,
+  };
+}
+
+export function activate(context: vscode.ExtensionContext): ExplorerBookmarkApi
+{
+  const api = createExplorerBookmarkApi(
+    context,
+    vscode.workspace.workspaceFolders
+  );
+
   vscode.window.registerTreeDataProvider(
     "explorer-bookmark",
-    directoryProvider);
+    api.directoryProvider);
 
   context.subscriptions.push(
     ...[
       vscode.commands.registerCommand(
-        DirectoryProviderCommands.RefreshEntry,
-        () => directoryProvider.refresh()
+        DirectoryProviderCommands.refreshEntry,
+        () => api.directoryProvider.refresh()
       ),
       vscode.commands.registerCommand(
-        DirectoryProviderCommands.OpenItem,
+        DirectoryProviderCommands.openItem,
         (file) =>
         {
-          vscode.commands.executeCommand(
-            vsCodeCommands.Open,
-            vscode.Uri.parse(file.resourceUri.path)
+          return vscode.commands.executeCommand(
+            VsCodeCommands.open,
+            file.resourceUri
           );
         }
       ),
       vscode.commands.registerCommand(
-        DirectoryProviderCommands.SelectItem,
-        (args) => directoryProvider.selectItem(vscode.Uri.parse(args.path))
+        DirectoryProviderCommands.selectItem,
+        (args) => api.directoryProvider.selectItem(api.directoryOperator.resolveUri(args))
       ),
       vscode.commands.registerCommand(
-        DirectoryProviderCommands.RemoveItem,
+        DirectoryProviderCommands.removeItem,
         (args) =>
         {
-          directoryProvider.removeItem(args.resourceUri);
+          return api.directoryProvider.removeItem(api.directoryOperator.resolveUri(args));
         }
       ),
       vscode.commands.registerCommand(
-        DirectoryProviderCommands.CantRemoveItem,
+        DirectoryProviderCommands.cantRemoveItem,
         () =>
         {
           vscode.window.showInformationMessage(
@@ -56,11 +78,13 @@ export function activate(context: vscode.ExtensionContext)
         }
       ),
       vscode.commands.registerCommand(
-        DirectoryProviderCommands.RemoveAllItems,
-        () => directoryProvider.removeAllItems()
+        DirectoryProviderCommands.removeAllItems,
+        () => api.directoryProvider.removeAllItems()
       ),
     ]
   );
+
+  return api;
 }
 
 export function deactivate() { }
