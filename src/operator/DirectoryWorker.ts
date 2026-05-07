@@ -95,6 +95,24 @@ export class DirectoryWorker
         }
     }
 
+    public renameBookmark(uri: vscode.Uri, alias: string): void
+    {
+        const index = this.bookmarkedDirectories
+            .findIndex((directory) => this.getBookmarkKeyForTypedDirectory(directory) === buildBookmarkKey(uri));
+
+        if (index > -1)
+        {
+            this.bookmarkedDirectories[index].alias = alias;
+            this.saveBookmarks();
+        }
+    }
+
+    public getBookmark(uri: vscode.Uri): TypedDirectory | undefined
+    {
+        return this.bookmarkedDirectories
+            .find((directory) => this.getBookmarkKeyForTypedDirectory(directory) === buildBookmarkKey(uri));
+    }
+
     public async deleteResource(uri: vscode.Uri): Promise<void>
     {
         await vscode.workspace.fs.delete(uri, { recursive: true, useTrash: true });
@@ -195,15 +213,23 @@ export class DirectoryWorker
         {
             const { type: type } = dir;
             const file = getTypedDirectoryUri(dir);
+            const originalName = path.basename(file.fsPath || file.path);
+
+            const item = new FileSystemObject(
+                dir.alias || originalName,
+                type === vscode.FileType.File
+                    ? vscode.TreeItemCollapsibleState.None
+                    : vscode.TreeItemCollapsibleState.Collapsed,
+                file
+            );
+
+            if (dir.alias && dir.alias !== originalName)
+            {
+                item.setAliasMetadata(originalName);
+            }
 
             fileSystem.push(
-                new FileSystemObject(
-                    `${path.basename(file.fsPath || file.path)}`,
-                    type === vscode.FileType.File
-                        ? vscode.TreeItemCollapsibleState.None
-                        : vscode.TreeItemCollapsibleState.Collapsed,
-                    file
-                ).setContextValue(this.getContextValue(file, type, true))
+                item.setContextValue(this.getContextValue(file, type, true))
             );
         }
 
@@ -258,7 +284,7 @@ export class DirectoryWorker
         }
 
         const uri = vscode.Uri.file(directory.path);
-        return new TypedDirectory(directory.path, buildBookmarkKey(uri), directory.type);
+        return new TypedDirectory(directory.path, buildBookmarkKey(uri), directory.alias, directory.type);
     }
 
     private getBookmarkKeyForTypedDirectory(directory: TypedDirectory): string

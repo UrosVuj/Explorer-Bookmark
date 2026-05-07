@@ -102,4 +102,26 @@ suite('Extension Test Suite', () => {
 
 		assert.strictEqual(rootItems.length, 0);
 	});
+
+	test('renames a bookmark label without renaming the underlying folder', async () => {
+		await vscode.commands.executeCommand(
+			'directoryprovider/selectitem',
+			tempDirectoryUri
+		);
+
+		api.directoryOperator.renameBookmark(tempDirectoryUri, 'Pinned Project');
+		api.directoryProvider.refresh();
+
+		const rootItems = await api.directoryProvider.getChildren();
+
+		assert.strictEqual(rootItems.length, 1);
+		assert.strictEqual(rootItems[0].label, 'Pinned Project');
+		assert.strictEqual(rootItems[0].description, '(bookmarked-folder)');
+		assert.strictEqual(rootItems[0].resourceUri.fsPath, tempDirectoryUri.fsPath);
+		assert.ok(rootItems[0].tooltip instanceof vscode.MarkdownString);
+		assert.ok(rootItems[0].tooltip.value.includes('Original name: bookmarked-folder'));
+
+		const stat = await vscode.workspace.fs.stat(tempDirectoryUri);
+		assert.strictEqual(stat.type, vscode.FileType.Directory);
+	});
 });

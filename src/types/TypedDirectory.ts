@@ -4,16 +4,19 @@ export class TypedDirectory
 {
   path: string;
   uri: string;
+  alias?: string;
   type: vscode.FileType;
 
   constructor(
     path: string,
     uri: string,
+    alias: string | undefined,
     type: vscode.FileType
   )
   {
     this.path = path;
     this.uri = uri;
+    this.alias = alias;
     this.type = type;
   }
 }
@@ -33,5 +36,5 @@ export function getTypedDirectoryUri(typedDirectory: TypedDirectory): vscode.Uri
 export async function buildTypedDirectory(uri: vscode.Uri)
 {
   const type = (await vscode.workspace.fs.stat(uri)).type;
-  return new TypedDirectory(uri.fsPath, buildBookmarkKey(uri), type);
+  return new TypedDirectory(uri.fsPath, buildBookmarkKey(uri), undefined, type);
 }

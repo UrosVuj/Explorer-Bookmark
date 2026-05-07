@@ -11,6 +11,7 @@ export enum DirectoryProviderCommands
     revealInExplorer = "directoryprovider/revealinexplorer",
     copyPath = "directoryprovider/copypath",
     copyRelativePath = "directoryprovider/copyrelativepath",
+    renameBookmark = "directoryprovider/renamebookmark",
     renameResource = "directoryprovider/renameresource",
     deleteResource = "directoryprovider/deleteresource",
     newFile = "directoryprovider/newfile",

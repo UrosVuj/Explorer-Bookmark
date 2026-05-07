@@ -58,6 +58,32 @@ async function promptForName(
   return value?.trim();
 }
 
+async function renameBookmark(
+  directoryOperator: DirectoryWorker,
+  directoryProvider: DirectoryProvider,
+  target: unknown
+): Promise<void>
+{
+  const uri = directoryOperator.resolveUri(target);
+
+  if (!uri)
+  {
+    return;
+  }
+
+  const bookmark = directoryOperator.getBookmark(uri);
+  const defaultValue = bookmark?.alias || uri.path.split("/").pop();
+  const nextName = await promptForName("Rename Bookmark", defaultValue);
+
+  if (!nextName)
+  {
+    return;
+  }
+
+  directoryOperator.renameBookmark(uri, nextName);
+  directoryProvider.refresh();
+}
+
 async function renameResource(
   directoryOperator: DirectoryWorker,
   directoryProvider: DirectoryProvider,
@@ -235,6 +261,10 @@ export function activate(context: vscode.ExtensionContext): ExplorerBookmarkApi
 
           await vscode.env.clipboard.writeText(vscode.workspace.asRelativePath(uri, false));
         }
+      ),
+      vscode.commands.registerCommand(
+        DirectoryProviderCommands.renameBookmark,
+        (args) => renameBookmark(api.directoryOperator, api.directoryProvider, args)
       ),
       vscode.commands.registerCommand(
         DirectoryProviderCommands.selectItem,
