@@ -19,11 +19,24 @@ export class FileSystemObject extends vscode.TreeItem
       collapsibleState === vscode.TreeItemCollapsibleState.None
         ? {
           arguments: [this],
-          command: DirectoryProviderCommands.OpenItem,
+          command: DirectoryProviderCommands.openItem,
           title: this.label,
         }
         : undefined;
   }
+
+  setAliasMetadata(originalName: string)
+  {
+    this.description = `(${originalName})`;
+
+    const tooltip = new vscode.MarkdownString();
+    tooltip.appendMarkdown(`Original name: ${originalName}`);
+    tooltip.appendMarkdown(`\n\n${this.resourceUri.fsPath}`);
+    this.tooltip = tooltip;
+
+    return this;
+  }
+
   setContextValue(value: string)
   {
     this.contextValue = value;

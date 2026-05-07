@@ -3,13 +3,31 @@ import * as path from "path";
 import { FileSystemObject } from "../types/FileSystemObject";
 import { TypedDirectory } from "../types/TypedDirectory";
 import { buildTypedDirectory } from "../types/TypedDirectory";
+import { buildBookmarkKey, getTypedDirectoryUri } from "../types/TypedDirectory";
+import { extractCommandTargetPath, isUriString } from "./CommandTarget";
+
+export interface BookmarkConfigurationEntry
+{
+    relativePath: string;
+    workspaceFolder?: string;
+    alias?: string;
+}
+
+export interface BookmarkConfigurationFile
+{
+    version: 1;
+    bookmarks: BookmarkConfigurationEntry[];
+}
 
 export class DirectoryWorker
 {
     readonly vsCodeExtensionConfigurationKey: string = "explorer-bookmark";
     readonly saveWorkspaceConfigurationSettingKey: string = "saveWorkspace";
     readonly storedBookmarksContextKey: string = "storedBookmarks";
-    readonly bookmarkedDirectoryContextValue: string = "directlyBookmarkedDirectory";
+    readonly directlyBookmarkedFileContextValue: string = "directlyBookmarkedFile";
+    readonly directlyBookmarkedFolderContextValue: string = "directlyBookmarkedFolder";
+    readonly bookmarkedChildFileContextValue: string = "bookmarkedChildFile";
+    readonly bookmarkedChildFolderContextValue: string = "bookmarkedChildFolder";
 
     private bookmarkedDirectories: TypedDirectory[] = [];
     private saveWorkspaceSetting: boolean | undefined = false;
@@ -39,7 +57,14 @@ export class DirectoryWorker
     {
         if (uri)
         {
-            this.bookmarkedDirectories.push(await buildTypedDirectory(uri));
+            const typedDirectory = await buildTypedDirectory(uri);
+            const alreadyBookmarked = this.bookmarkedDirectories
+                .some((directory) => this.getBookmarkKeyForTypedDirectory(directory) === typedDirectory.uri);
+
+            if (!alreadyBookmarked)
+            {
+                this.bookmarkedDirectories.push(typedDirectory);
+            }
         }
         this.saveBookmarks();
     }
@@ -48,10 +73,10 @@ export class DirectoryWorker
     {
         if (uri)
         {
-            const typedDirectory = await buildTypedDirectory(uri)
+            const bookmarkKey = buildBookmarkKey(uri);
             const index =
-                this.bookmarkedDirectories.map(e => e.path)
-                    .indexOf(typedDirectory.path)
+                this.bookmarkedDirectories.map((directory) => this.getBookmarkKeyForTypedDirectory(directory))
+                    .indexOf(bookmarkKey);
             if (index > -1)
             {
                 this.bookmarkedDirectories.splice(index, 1);
@@ -64,6 +89,133 @@ export class DirectoryWorker
     {
         this.bookmarkedDirectories = [];
         this.saveBookmarks();
+    }
+
+    public exportBookmarks(): BookmarkConfigurationFile
+    {
+        const bookmarks = this.bookmarkedDirectories.map((directory) => this.serializeBookmark(directory));
+
+        return {
+            version: 1,
+            bookmarks,
+        };
+    }
+
+    public async importBookmarks(configuration: BookmarkConfigurationFile): Promise<void>
+    {
+        const importedBookmarks: TypedDirectory[] = [];
+
+        for (const bookmark of configuration.bookmarks)
+        {
+            const uri = this.resolveImportedBookmarkUri(bookmark);
+            importedBookmarks.push(await buildTypedDirectory(uri));
+            importedBookmarks[importedBookmarks.length - 1].alias = bookmark.alias;
+        }
+
+        this.bookmarkedDirectories = importedBookmarks;
+        this.saveBookmarks();
+    }
+
+    public async renameResource(
+        sourceUri: vscode.Uri,
+        destinationUri: vscode.Uri
+    ): Promise<void>
+    {
+        await vscode.workspace.fs.rename(sourceUri, destinationUri, { overwrite: false });
+
+        const index = this.bookmarkedDirectories
+            .findIndex((directory) => this.getBookmarkKeyForTypedDirectory(directory) === buildBookmarkKey(sourceUri));
+
+        if (index > -1)
+        {
+            this.bookmarkedDirectories[index] = await buildTypedDirectory(destinationUri);
+            this.saveBookmarks();
+        }
+    }
+
+    public renameBookmark(uri: vscode.Uri, alias: string): void
+    {
+        const index = this.bookmarkedDirectories
+            .findIndex((directory) => this.getBookmarkKeyForTypedDirectory(directory) === buildBookmarkKey(uri));
+
+        if (index > -1)
+        {
+            this.bookmarkedDirectories[index].alias = alias;
+            this.saveBookmarks();
+        }
+    }
+
+    public getBookmark(uri: vscode.Uri): TypedDirectory | undefined
+    {
+        return this.bookmarkedDirectories
+            .find((directory) => this.getBookmarkKeyForTypedDirectory(directory) === buildBookmarkKey(uri));
+    }
+
+    public async deleteResource(uri: vscode.Uri): Promise<void>
+    {
+        await vscode.workspace.fs.delete(uri, { recursive: true, useTrash: true });
+        await this.removeItem(uri);
+    }
+
+    public async isDirectory(uri: vscode.Uri): Promise<boolean>
+    {
+        return (await vscode.workspace.fs.stat(uri)).type === vscode.FileType.Directory;
+    }
+
+    public getContextValue(uri: vscode.Uri, type: vscode.FileType, directlyBookmarked: boolean): string
+    {
+        if (directlyBookmarked)
+        {
+            return type === vscode.FileType.Directory
+                ? this.directlyBookmarkedFolderContextValue
+                : this.directlyBookmarkedFileContextValue;
+        }
+
+        return type === vscode.FileType.Directory
+            ? this.bookmarkedChildFolderContextValue
+            : this.bookmarkedChildFileContextValue;
+    }
+
+    public resolveUri(value: unknown): vscode.Uri | undefined
+    {
+        if (!value)
+        {
+            return undefined;
+        }
+
+        if (value instanceof vscode.Uri)
+        {
+            return value;
+        }
+
+        if (typeof value === "object")
+        {
+            const candidate = value as {
+                resourceUri?: vscode.Uri;
+                uri?: vscode.Uri;
+            };
+
+            if (candidate.resourceUri instanceof vscode.Uri)
+            {
+                return candidate.resourceUri;
+            }
+
+            if (candidate.uri instanceof vscode.Uri)
+            {
+                return candidate.uri;
+            }
+        }
+
+        const pathOrUri = extractCommandTargetPath(value);
+
+        if (typeof pathOrUri === "string")
+        {
+            return isUriString(pathOrUri)
+                ? vscode.Uri.parse(pathOrUri)
+                : vscode.Uri.file(pathOrUri);
+        }
+
+        return undefined;
     }
 
     private async directorySearch(uri: vscode.Uri)
@@ -82,8 +234,12 @@ export class DirectoryWorker
                 return new FileSystemObject(
                     name,
                     isDirectory,
-                    vscode.Uri.file(`${uri.path}/${name}`)
-                );
+                    vscode.Uri.joinPath(uri, name)
+                ).setContextValue(this.getContextValue(
+                    vscode.Uri.joinPath(uri, name),
+                    type,
+                    false
+                ));
             });
     }
 
@@ -93,17 +249,25 @@ export class DirectoryWorker
 
         for (const dir of bookmarkedDirectories)
         {
-            const { path: filePath, type: type } = dir;
-            const file = vscode.Uri.file(filePath);
+            const { type: type } = dir;
+            const file = getTypedDirectoryUri(dir);
+            const originalName = path.basename(file.fsPath || file.path);
+
+            const item = new FileSystemObject(
+                dir.alias || originalName,
+                type === vscode.FileType.File
+                    ? vscode.TreeItemCollapsibleState.None
+                    : vscode.TreeItemCollapsibleState.Collapsed,
+                file
+            );
+
+            if (dir.alias && dir.alias !== originalName)
+            {
+                item.setAliasMetadata(originalName);
+            }
 
             fileSystem.push(
-                new FileSystemObject(
-                    `${path.basename(dir.path)}`,
-                    type === vscode.FileType.File
-                        ? vscode.TreeItemCollapsibleState.None
-                        : vscode.TreeItemCollapsibleState.Collapsed,
-                    file
-                ).setContextValue(this.bookmarkedDirectoryContextValue)
+                item.setContextValue(this.getContextValue(file, type, true))
             );
         }
 
@@ -113,16 +277,32 @@ export class DirectoryWorker
     private hydrateState(): void
     {
         this.saveWorkspaceSetting = vscode.workspace
-            .getConfiguration(this.saveWorkspaceConfigurationSettingKey)
+            .getConfiguration(this.vsCodeExtensionConfigurationKey)
             .get(this.saveWorkspaceConfigurationSettingKey);
-        this.bookmarkedDirectories =
+        const storedBookmarks =
             (this.workspaceRoot
                 ? this.extensionContext.workspaceState.get(this.storedBookmarksContextKey)
                 : this.extensionContext.globalState.get(this.storedBookmarksContextKey)) || [];
+
+        this.bookmarkedDirectories = (storedBookmarks as TypedDirectory[])
+            .map((directory) => this.normalizeTypedDirectory(directory));
     }
 
     private saveBookmarks()
     {
+        if (!this.saveWorkspaceSetting)
+        {
+            void this.extensionContext.workspaceState.update(
+                this.storedBookmarksContextKey,
+                undefined
+            );
+            void this.extensionContext.globalState.update(
+                this.storedBookmarksContextKey,
+                undefined
+            );
+            return;
+        }
+
         this.workspaceRoot
             ? this.extensionContext.workspaceState.update(
                 this.storedBookmarksContextKey,
@@ -132,5 +312,69 @@ export class DirectoryWorker
                 this.storedBookmarksContextKey,
                 this.bookmarkedDirectories
             );
+    }
+
+    private normalizeTypedDirectory(directory: TypedDirectory): TypedDirectory
+    {
+        if (directory.uri)
+        {
+            return directory;
+        }
+
+        const uri = vscode.Uri.file(directory.path);
+        return new TypedDirectory(directory.path, buildBookmarkKey(uri), directory.alias, directory.type);
+    }
+
+    private getBookmarkKeyForTypedDirectory(directory: TypedDirectory): string
+    {
+        return directory.uri || buildBookmarkKey(vscode.Uri.file(directory.path));
+    }
+
+    private serializeBookmark(directory: TypedDirectory): BookmarkConfigurationEntry
+    {
+        const uri = getTypedDirectoryUri(directory);
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+
+        if (!workspaceFolder)
+        {
+            throw new Error(
+                `Bookmark "${uri.toString(true)}" cannot be exported because it is outside the current workspace.`
+            );
+        }
+
+        const relativePath = vscode.workspace.asRelativePath(uri, false);
+
+        return {
+            relativePath,
+            workspaceFolder: workspaceFolder.name,
+            alias: directory.alias,
+        };
+    }
+
+    private resolveImportedBookmarkUri(bookmark: BookmarkConfigurationEntry): vscode.Uri
+    {
+        const workspaceFolders = vscode.workspace.workspaceFolders || [];
+
+        if (workspaceFolders.length === 0)
+        {
+            throw new Error("Import requires an open workspace folder.");
+        }
+
+        const workspaceFolder = bookmark.workspaceFolder
+            ? workspaceFolders.find((folder) => folder.name === bookmark.workspaceFolder)
+            : workspaceFolders[0];
+
+        if (!workspaceFolder)
+        {
+            throw new Error(
+                `Workspace folder "${bookmark.workspaceFolder}" was not found while importing bookmarks.`
+            );
+        }
+
+        const pathSegments = bookmark.relativePath
+            .split("/")
+            .filter((segment) => segment.length > 0);
+
+        return vscode.Uri.joinPath(workspaceFolder.uri, ...pathSegments);
     }
 }
