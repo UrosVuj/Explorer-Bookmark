@@ -134,14 +134,14 @@
           "group": "navigation"
         },
         {
-          "command": "directoryprovider/exportbookmarks",
-          "when": "view == explorer-bookmark",
-          "group": "navigation"
-        },
-        {
           "command": "directoryprovider/importbookmarks",
           "when": "view == explorer-bookmark",
-          "group": "navigation"
+          "group": "2_manage"
+        },
+        {
+          "command": "directoryprovider/exportbookmarks",
+          "when": "view == explorer-bookmark",
+          "group": "2_manage"
         }
       ],
       "explorer/context": [
