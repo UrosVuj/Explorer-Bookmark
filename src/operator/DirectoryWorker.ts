@@ -3,6 +3,7 @@ import * as path from "path";
 import { FileSystemObject } from "../types/FileSystemObject";
 import { TypedDirectory } from "../types/TypedDirectory";
 import { buildTypedDirectory } from "../types/TypedDirectory";
+import { buildBookmarkKey, getTypedDirectoryUri } from "../types/TypedDirectory";
 import { extractCommandTargetPath, isUriString } from "./CommandTarget";
 
 export class DirectoryWorker
@@ -45,7 +46,7 @@ export class DirectoryWorker
         {
             const typedDirectory = await buildTypedDirectory(uri);
             const alreadyBookmarked = this.bookmarkedDirectories
-                .some((directory) => directory.path === typedDirectory.path);
+                .some((directory) => this.getBookmarkKeyForTypedDirectory(directory) === typedDirectory.uri);
 
             if (!alreadyBookmarked)
             {
@@ -59,9 +60,10 @@ export class DirectoryWorker
     {
         if (uri)
         {
+            const bookmarkKey = buildBookmarkKey(uri);
             const index =
-                this.bookmarkedDirectories.map(e => e.path)
-                    .indexOf(uri.fsPath);
+                this.bookmarkedDirectories.map((directory) => this.getBookmarkKeyForTypedDirectory(directory))
+                    .indexOf(bookmarkKey);
             if (index > -1)
             {
                 this.bookmarkedDirectories.splice(index, 1);
@@ -84,7 +86,7 @@ export class DirectoryWorker
         await vscode.workspace.fs.rename(sourceUri, destinationUri, { overwrite: false });
 
         const index = this.bookmarkedDirectories
-            .findIndex((directory) => directory.path === sourceUri.fsPath);
+            .findIndex((directory) => this.getBookmarkKeyForTypedDirectory(directory) === buildBookmarkKey(sourceUri));
 
         if (index > -1)
         {
@@ -191,12 +193,12 @@ export class DirectoryWorker
 
         for (const dir of bookmarkedDirectories)
         {
-            const { path: filePath, type: type } = dir;
-            const file = vscode.Uri.file(filePath);
+            const { type: type } = dir;
+            const file = getTypedDirectoryUri(dir);
 
             fileSystem.push(
                 new FileSystemObject(
-                    `${path.basename(filePath)}`,
+                    `${path.basename(file.fsPath || file.path)}`,
                     type === vscode.FileType.File
                         ? vscode.TreeItemCollapsibleState.None
                         : vscode.TreeItemCollapsibleState.Collapsed,
@@ -213,10 +215,13 @@ export class DirectoryWorker
         this.saveWorkspaceSetting = vscode.workspace
             .getConfiguration(this.vsCodeExtensionConfigurationKey)
             .get(this.saveWorkspaceConfigurationSettingKey);
-        this.bookmarkedDirectories =
+        const storedBookmarks =
             (this.workspaceRoot
                 ? this.extensionContext.workspaceState.get(this.storedBookmarksContextKey)
                 : this.extensionContext.globalState.get(this.storedBookmarksContextKey)) || [];
+
+        this.bookmarkedDirectories = (storedBookmarks as TypedDirectory[])
+            .map((directory) => this.normalizeTypedDirectory(directory));
     }
 
     private saveBookmarks()
@@ -243,5 +248,21 @@ export class DirectoryWorker
                 this.storedBookmarksContextKey,
                 this.bookmarkedDirectories
             );
+    }
+
+    private normalizeTypedDirectory(directory: TypedDirectory): TypedDirectory
+    {
+        if (directory.uri)
+        {
+            return directory;
+        }
+
+        const uri = vscode.Uri.file(directory.path);
+        return new TypedDirectory(directory.path, buildBookmarkKey(uri), directory.type);
+    }
+
+    private getBookmarkKeyForTypedDirectory(directory: TypedDirectory): string
+    {
+        return directory.uri || buildBookmarkKey(vscode.Uri.file(directory.path));
     }
 }
