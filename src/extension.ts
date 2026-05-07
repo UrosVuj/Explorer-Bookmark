@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { DirectoryProvider } from "./provider/DirectoryProvider";
 import { DirectoryWorker } from "./operator/DirectoryWorker";
+import { BookmarkConfigurationFile } from "./operator/DirectoryWorker";
 import { DirectoryProviderCommands } from "./commands/CrudCommands";
 import { VsCodeCommands } from "./commands/CrudCommands";
 
@@ -176,6 +177,83 @@ async function createChildResource(
   directoryProvider.refresh();
 }
 
+function isBookmarkConfigurationFile(value: unknown): value is BookmarkConfigurationFile
+{
+  if (!value || typeof value !== "object")
+  {
+    return false;
+  }
+
+  const candidate = value as {
+    version?: unknown;
+    bookmarks?: unknown;
+  };
+
+  return candidate.version === 1 && Array.isArray(candidate.bookmarks);
+}
+
+async function exportBookmarks(
+  directoryOperator: DirectoryWorker,
+  targetUri?: vscode.Uri
+): Promise<void>
+{
+  const destinationUri = targetUri || await vscode.window.showSaveDialog({
+    saveLabel: "Export Bookmarks",
+    filters: {
+      JSON: ["json"],
+    },
+    defaultUri: vscode.workspace.workspaceFolders?.[0]
+      ? vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri, "explorer-bookmarks.json")
+      : undefined,
+  });
+
+  if (!destinationUri)
+  {
+    return;
+  }
+
+  const configuration = directoryOperator.exportBookmarks();
+  const content = JSON.stringify(configuration, null, 2);
+
+  await vscode.workspace.fs.writeFile(
+    destinationUri,
+    Buffer.from(content, "utf8")
+  );
+}
+
+async function importBookmarks(
+  directoryOperator: DirectoryWorker,
+  directoryProvider: DirectoryProvider,
+  sourceUri?: vscode.Uri
+): Promise<void>
+{
+  const resolvedSourceUri = sourceUri || (await vscode.window.showOpenDialog({
+    canSelectFiles: true,
+    canSelectFolders: false,
+    canSelectMany: false,
+    openLabel: "Import Bookmarks",
+    filters: {
+      JSON: ["json"],
+    },
+  }))?.[0];
+
+  if (!resolvedSourceUri)
+  {
+    return;
+  }
+
+  const rawContent = await vscode.workspace.fs.readFile(resolvedSourceUri);
+  const parsedContent = JSON.parse(Buffer.from(rawContent).toString("utf8")) as unknown;
+
+  if (!isBookmarkConfigurationFile(parsedContent))
+  {
+    throw new Error("The selected file is not a valid Explorer Bookmark configuration.");
+  }
+
+  await directoryOperator.importBookmarks(parsedContent);
+  directoryProvider.refresh();
+}
+
 export function activate(context: vscode.ExtensionContext): ExplorerBookmarkApi
 {
   const api = createExplorerBookmarkApi(
@@ -265,6 +343,14 @@ export function activate(context: vscode.ExtensionContext): ExplorerBookmarkApi
       vscode.commands.registerCommand(
         DirectoryProviderCommands.renameBookmark,
         (args) => renameBookmark(api.directoryOperator, api.directoryProvider, args)
+      ),
+      vscode.commands.registerCommand(
+        DirectoryProviderCommands.exportBookmarks,
+        (args) => exportBookmarks(api.directoryOperator, api.directoryOperator.resolveUri(args))
+      ),
+      vscode.commands.registerCommand(
+        DirectoryProviderCommands.importBookmarks,
+        (args) => importBookmarks(api.directoryOperator, api.directoryProvider, api.directoryOperator.resolveUri(args))
       ),
       vscode.commands.registerCommand(
         DirectoryProviderCommands.selectItem,

@@ -82,6 +82,14 @@
         "title": "Rename Bookmark..."
       },
       {
+        "command": "directoryprovider/exportbookmarks",
+        "title": "Export Bookmarks..."
+      },
+      {
+        "command": "directoryprovider/importbookmarks",
+        "title": "Import Bookmarks..."
+      },
+      {
         "command": "directoryprovider/renameresource",
         "title": "Rename File or Folder..."
       },
@@ -122,6 +130,16 @@
         },
         {
           "command": "directoryprovider/removeallitems",
+          "when": "view == explorer-bookmark",
+          "group": "navigation"
+        },
+        {
+          "command": "directoryprovider/exportbookmarks",
+          "when": "view == explorer-bookmark",
+          "group": "navigation"
+        },
+        {
+          "command": "directoryprovider/importbookmarks",
           "when": "view == explorer-bookmark",
           "group": "navigation"
         }

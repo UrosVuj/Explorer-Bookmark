@@ -12,6 +12,8 @@ export enum DirectoryProviderCommands
     copyPath = "directoryprovider/copypath",
     copyRelativePath = "directoryprovider/copyrelativepath",
     renameBookmark = "directoryprovider/renamebookmark",
+    exportBookmarks = "directoryprovider/exportbookmarks",
+    importBookmarks = "directoryprovider/importbookmarks",
     renameResource = "directoryprovider/renameresource",
     deleteResource = "directoryprovider/deleteresource",
     newFile = "directoryprovider/newfile",

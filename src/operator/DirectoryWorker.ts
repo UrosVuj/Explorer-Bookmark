@@ -6,6 +6,19 @@ import { buildTypedDirectory } from "../types/TypedDirectory";
 import { buildBookmarkKey, getTypedDirectoryUri } from "../types/TypedDirectory";
 import { extractCommandTargetPath, isUriString } from "./CommandTarget";
 
+export interface BookmarkConfigurationEntry
+{
+    relativePath: string;
+    workspaceFolder?: string;
+    alias?: string;
+}
+
+export interface BookmarkConfigurationFile
+{
+    version: 1;
+    bookmarks: BookmarkConfigurationEntry[];
+}
+
 export class DirectoryWorker
 {
     readonly vsCodeExtensionConfigurationKey: string = "explorer-bookmark";
@@ -75,6 +88,31 @@ export class DirectoryWorker
     public removeAllItems()
     {
         this.bookmarkedDirectories = [];
+        this.saveBookmarks();
+    }
+
+    public exportBookmarks(): BookmarkConfigurationFile
+    {
+        const bookmarks = this.bookmarkedDirectories.map((directory) => this.serializeBookmark(directory));
+
+        return {
+            version: 1,
+            bookmarks,
+        };
+    }
+
+    public async importBookmarks(configuration: BookmarkConfigurationFile): Promise<void>
+    {
+        const importedBookmarks: TypedDirectory[] = [];
+
+        for (const bookmark of configuration.bookmarks)
+        {
+            const uri = this.resolveImportedBookmarkUri(bookmark);
+            importedBookmarks.push(await buildTypedDirectory(uri));
+            importedBookmarks[importedBookmarks.length - 1].alias = bookmark.alias;
+        }
+
+        this.bookmarkedDirectories = importedBookmarks;
         this.saveBookmarks();
     }
 
@@ -290,5 +328,53 @@ export class DirectoryWorker
     private getBookmarkKeyForTypedDirectory(directory: TypedDirectory): string
     {
         return directory.uri || buildBookmarkKey(vscode.Uri.file(directory.path));
+    }
+
+    private serializeBookmark(directory: TypedDirectory): BookmarkConfigurationEntry
+    {
+        const uri = getTypedDirectoryUri(directory);
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+
+        if (!workspaceFolder)
+        {
+            throw new Error(
+                `Bookmark "${uri.toString(true)}" cannot be exported because it is outside the current workspace.`
+            );
+        }
+
+        const relativePath = vscode.workspace.asRelativePath(uri, false);
+
+        return {
+            relativePath,
+            workspaceFolder: workspaceFolder.name,
+            alias: directory.alias,
+        };
+    }
+
+    private resolveImportedBookmarkUri(bookmark: BookmarkConfigurationEntry): vscode.Uri
+    {
+        const workspaceFolders = vscode.workspace.workspaceFolders || [];
+
+        if (workspaceFolders.length === 0)
+        {
+            throw new Error("Import requires an open workspace folder.");
+        }
+
+        const workspaceFolder = bookmark.workspaceFolder
+            ? workspaceFolders.find((folder) => folder.name === bookmark.workspaceFolder)
+            : workspaceFolders[0];
+
+        if (!workspaceFolder)
+        {
+            throw new Error(
+                `Workspace folder "${bookmark.workspaceFolder}" was not found while importing bookmarks.`
+            );
+        }
+
+        const pathSegments = bookmark.relativePath
+            .split("/")
+            .filter((segment) => segment.length > 0);
+
+        return vscode.Uri.joinPath(workspaceFolder.uri, ...pathSegments);
     }
 }
