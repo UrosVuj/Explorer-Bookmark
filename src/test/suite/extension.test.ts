@@ -81,4 +81,25 @@ suite('Extension Test Suite', () => {
 
 		assert.strictEqual(rootItems.length, 0);
 	});
+
+	test('removes a stale bookmark even if the file no longer exists', async () => {
+		const deletedFilePath = path.join(tempRoot, 'deleted.txt');
+		const deletedFileUri = vscode.Uri.file(deletedFilePath);
+
+		await fsPromises.writeFile(deletedFilePath, 'temporary file');
+		await vscode.commands.executeCommand(
+			'directoryprovider/selectitem',
+			deletedFileUri
+		);
+
+		await fsPromises.rm(deletedFilePath, { force: true });
+		await vscode.commands.executeCommand(
+			'directoryprovider/removeitem',
+			{ path: deletedFileUri.fsPath }
+		);
+
+		const rootItems = await api.directoryProvider.getChildren();
+
+		assert.strictEqual(rootItems.length, 0);
+	});
 });

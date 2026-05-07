@@ -10,7 +10,10 @@ export class DirectoryWorker
     readonly vsCodeExtensionConfigurationKey: string = "explorer-bookmark";
     readonly saveWorkspaceConfigurationSettingKey: string = "saveWorkspace";
     readonly storedBookmarksContextKey: string = "storedBookmarks";
-    readonly bookmarkedDirectoryContextValue: string = "directlyBookmarkedDirectory";
+    readonly directlyBookmarkedFileContextValue: string = "directlyBookmarkedFile";
+    readonly directlyBookmarkedFolderContextValue: string = "directlyBookmarkedFolder";
+    readonly bookmarkedChildFileContextValue: string = "bookmarkedChildFile";
+    readonly bookmarkedChildFolderContextValue: string = "bookmarkedChildFolder";
 
     private bookmarkedDirectories: TypedDirectory[] = [];
     private saveWorkspaceSetting: boolean | undefined = false;
@@ -56,10 +59,9 @@ export class DirectoryWorker
     {
         if (uri)
         {
-            const typedDirectory = await buildTypedDirectory(uri);
             const index =
                 this.bookmarkedDirectories.map(e => e.path)
-                    .indexOf(typedDirectory.path);
+                    .indexOf(uri.fsPath);
             if (index > -1)
             {
                 this.bookmarkedDirectories.splice(index, 1);
@@ -72,6 +74,48 @@ export class DirectoryWorker
     {
         this.bookmarkedDirectories = [];
         this.saveBookmarks();
+    }
+
+    public async renameResource(
+        sourceUri: vscode.Uri,
+        destinationUri: vscode.Uri
+    ): Promise<void>
+    {
+        await vscode.workspace.fs.rename(sourceUri, destinationUri, { overwrite: false });
+
+        const index = this.bookmarkedDirectories
+            .findIndex((directory) => directory.path === sourceUri.fsPath);
+
+        if (index > -1)
+        {
+            this.bookmarkedDirectories[index] = await buildTypedDirectory(destinationUri);
+            this.saveBookmarks();
+        }
+    }
+
+    public async deleteResource(uri: vscode.Uri): Promise<void>
+    {
+        await vscode.workspace.fs.delete(uri, { recursive: true, useTrash: true });
+        await this.removeItem(uri);
+    }
+
+    public async isDirectory(uri: vscode.Uri): Promise<boolean>
+    {
+        return (await vscode.workspace.fs.stat(uri)).type === vscode.FileType.Directory;
+    }
+
+    public getContextValue(uri: vscode.Uri, type: vscode.FileType, directlyBookmarked: boolean): string
+    {
+        if (directlyBookmarked)
+        {
+            return type === vscode.FileType.Directory
+                ? this.directlyBookmarkedFolderContextValue
+                : this.directlyBookmarkedFileContextValue;
+        }
+
+        return type === vscode.FileType.Directory
+            ? this.bookmarkedChildFolderContextValue
+            : this.bookmarkedChildFileContextValue;
     }
 
     public resolveUri(value: unknown): vscode.Uri | undefined
@@ -133,7 +177,11 @@ export class DirectoryWorker
                     name,
                     isDirectory,
                     vscode.Uri.joinPath(uri, name)
-                );
+                ).setContextValue(this.getContextValue(
+                    vscode.Uri.joinPath(uri, name),
+                    type,
+                    false
+                ));
             });
     }
 
@@ -153,7 +201,7 @@ export class DirectoryWorker
                         ? vscode.TreeItemCollapsibleState.None
                         : vscode.TreeItemCollapsibleState.Collapsed,
                     file
-                ).setContextValue(this.bookmarkedDirectoryContextValue)
+                ).setContextValue(this.getContextValue(file, type, true))
             );
         }
 

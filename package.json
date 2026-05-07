@@ -62,6 +62,39 @@
         "title": "Open"
       },
       {
+        "command": "directoryprovider/openitemtoside",
+        "title": "Open to the Side"
+      },
+      {
+        "command": "directoryprovider/revealinexplorer",
+        "title": "Reveal in Explorer View"
+      },
+      {
+        "command": "directoryprovider/copypath",
+        "title": "Copy Path"
+      },
+      {
+        "command": "directoryprovider/copyrelativepath",
+        "title": "Copy Relative Path"
+      },
+      {
+        "command": "directoryprovider/renameresource",
+        "title": "Rename..."
+      },
+      {
+        "command": "directoryprovider/deleteresource",
+        "title": "Delete",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "directoryprovider/newfile",
+        "title": "New File..."
+      },
+      {
+        "command": "directoryprovider/newfolder",
+        "title": "New Folder..."
+      },
+      {
         "command": "directoryprovider/removeitem",
         "title": "Remove from Explorer Bookmark",
         "icon": "$(close)"
@@ -96,17 +129,59 @@
       ],
       "view/item/context": [
         {
-          "command": "directoryprovider/removeitem",
-          "when": "view == explorer-bookmark && viewItem == directlyBookmarkedDirectory"
+          "command": "directoryprovider/openitem",
+          "when": "view == explorer-bookmark && (viewItem == directlyBookmarkedFile || viewItem == bookmarkedChildFile)",
+          "group": "0_open"
+        },
+        {
+          "command": "directoryprovider/openitemtoside",
+          "when": "view == explorer-bookmark && (viewItem == directlyBookmarkedFile || viewItem == bookmarkedChildFile)",
+          "group": "0_open"
+        },
+        {
+          "command": "directoryprovider/newfile",
+          "when": "view == explorer-bookmark && (viewItem == directlyBookmarkedFolder || viewItem == bookmarkedChildFolder)",
+          "group": "0_open"
+        },
+        {
+          "command": "directoryprovider/newfolder",
+          "when": "view == explorer-bookmark && (viewItem == directlyBookmarkedFolder || viewItem == bookmarkedChildFolder)",
+          "group": "0_open"
+        },
+        {
+          "command": "directoryprovider/revealinexplorer",
+          "when": "view == explorer-bookmark",
+          "group": "1_reveal"
+        },
+        {
+          "command": "directoryprovider/copypath",
+          "when": "view == explorer-bookmark",
+          "group": "2_copy"
+        },
+        {
+          "command": "directoryprovider/copyrelativepath",
+          "when": "view == explorer-bookmark",
+          "group": "2_copy"
+        },
+        {
+          "command": "directoryprovider/renameresource",
+          "when": "view == explorer-bookmark",
+          "group": "3_modify"
+        },
+        {
+          "command": "directoryprovider/deleteresource",
+          "when": "view == explorer-bookmark",
+          "group": "3_modify"
         },
         {
           "command": "directoryprovider/removeitem",
-          "when": "view == explorer-bookmark && viewItem == directlyBookmarkedDirectory",
+          "when": "view == explorer-bookmark && (viewItem == directlyBookmarkedFile || viewItem == directlyBookmarkedFolder)",
+          "group": "4_bookmark"
+        },
+        {
+          "command": "directoryprovider/removeitem",
+          "when": "view == explorer-bookmark && (viewItem == directlyBookmarkedFile || viewItem == directlyBookmarkedFolder)",
           "group": "inline"
-        },
-        {
-          "command": "directoryprovider/cantremoveitem",
-          "when": "view == explorer-bookmark && viewItem != directlyBookmarkedDirectory"
         }
       ]
     },
